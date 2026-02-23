@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="KariyerMatch - Öğrenciler ve işverenler arasında akıllı eşleştirme platformu. Becerilerinize uygun iş ve staj fırsatlarını keşfedin.">
+  <title>KariyerMatch - Akıllı İş & Staj Eşleştirme</title>
+  <link rel="stylesheet" href="/src/css/main.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
+</head>
+<body>
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Navigation -->
+  <nav class="navbar" id="navbar">
+    <div class="container">
+      <a href="#/" class="navbar-brand" id="navBrand">
+        <div class="logo-icon">🎯</div>
+        <span>KariyerMatch</span>
+      </a>
+
+      <ul class="navbar-links" id="navLinks">
+        <li><a href="#/" data-page="home">Ana Sayfa</a></li>
+        <li><a href="#/jobs" data-page="jobs">İlanlar</a></li>
+      </ul>
+
+      <div class="navbar-actions" id="navActions">
+        <a href="#/login" class="btn btn-secondary btn-sm">Giriş Yap</a>
+        <a href="#/register" class="btn btn-primary btn-sm">Kayıt Ol</a>
+      </div>
+
+      <button class="navbar-menu-btn" id="menuBtn" aria-label="Menü">☰</button>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="page-content" id="app">
+    <!-- Pages will be rendered here -->
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer" id="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <div class="navbar-brand" style="margin-bottom: var(--space-2);">
+            <div class="logo-icon">🎯</div>
+            <span>KariyerMatch</span>
+          </div>
+          <p>Öğrenciler ve işverenler arasında akıllı eşleştirme platformu. Becerilerinize en uygun fırsatları keşfedin.</p>
+        </div>
+        <div class="footer-col">
+          <h4>Platform</h4>
+          <a href="#/jobs">İş İlanları</a>
+          <a href="#/jobs?type=internship">Staj İlanları</a>
+          <a href="#/register">Kayıt Ol</a>
+        </div>
+        <div class="footer-col">
+          <h4>Öğrenciler</h4>
+          <a href="#/register">Profil Oluştur</a>
+          <a href="#/jobs">İlan Ara</a>
+          <a href="#/dashboard">Eşleşmeler</a>
+        </div>
+        <div class="footer-col">
+          <h4>İşverenler</h4>
+          <a href="#/register">İlan Ver</a>
+          <a href="#/dashboard">Aday Bul</a>
+          <a href="#/dashboard">Başvuruları Yönet</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>&copy; 2026 KariyerMatch. Tüm hakları saklıdır.</span>
+        <span>❤️ ile yapıldı</span>
+      </div>
+    </div>
+  </footer>
+
+  <script type="module" src="/src/js/app.js"></script>
+</body>
+</html>
