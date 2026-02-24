@@ -1,5 +1,6 @@
 import { getDb } from './utils/db.js';
 import { getUserFromEvent, jsonResponse, corsHeaders } from './utils/helpers.js';
+import { createNotification } from './notifications.js';
 
 export async function handler(event) {
     if (event.httpMethod === 'OPTIONS') {
@@ -53,6 +54,26 @@ export async function handler(event) {
             if (result.length === 0) {
                 return jsonResponse(409, { error: 'Bu ilana zaten başvurdunuz' });
             }
+
+            // İşverene bildirim gönder
+            try {
+                const jobInfo = await sql`
+                  SELECT jl.title, ep.user_id as employer_user_id
+                  FROM job_listings jl
+                  JOIN employer_profiles ep ON jl.employer_id = ep.id
+                  WHERE jl.id = ${jobId}
+                `;
+                if (jobInfo.length > 0) {
+                    await createNotification(
+                        sql,
+                        jobInfo[0].employer_user_id,
+                        'new_application',
+                        'Yeni Başvuru',
+                        `${authUser.email.split('@')[0]} adlı öğrenci "${jobInfo[0].title}" ilanınıza başvurdu`,
+                        `#/dashboard`
+                    );
+                }
+            } catch (e) { console.error('Notif error:', e); }
 
             return jsonResponse(201, { application: result[0] });
         }
@@ -120,6 +141,30 @@ export async function handler(event) {
         WHERE id = ${appId}
         RETURNING *
       `;
+
+            // Öğrenciye bildirim gönder
+            if (result.length > 0) {
+                try {
+                    const appInfo = await sql`
+                      SELECT a.student_id, jl.title, sp.user_id as student_user_id
+                      FROM applications a
+                      JOIN job_listings jl ON a.job_id = jl.id
+                      JOIN student_profiles sp ON a.student_id = sp.id
+                      WHERE a.id = ${appId}
+                    `;
+                    if (appInfo.length > 0) {
+                        const statusLabels = { reviewed: 'incelendi', accepted: 'kabul edildi ✅', rejected: 'reddedildi ❌', pending: 'beklemeye alındı' };
+                        await createNotification(
+                            sql,
+                            appInfo[0].student_user_id,
+                            'application_status',
+                            'Başvuru Güncellendi',
+                            `"${appInfo[0].title}" başvurunuz ${statusLabels[status] || status}`,
+                            `#/dashboard`
+                        );
+                    }
+                } catch (e) { console.error('Notif error:', e); }
+            }
 
             return jsonResponse(200, { application: result[0] });
         }

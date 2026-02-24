@@ -98,3 +98,17 @@ CREATE INDEX idx_job_requirements_skill ON job_requirements(skill_name);
 CREATE INDEX idx_job_listings_active ON job_listings(is_active);
 CREATE INDEX idx_job_listings_type ON job_listings(type);
 CREATE INDEX idx_applications_status ON applications(status);
+
+-- Bildirimler
+CREATE TABLE IF NOT EXISTS notifications (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  type VARCHAR(50) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  message TEXT,
+  link VARCHAR(500),
+  is_read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX idx_notifications_user ON notifications(user_id);
+CREATE INDEX idx_notifications_read ON notifications(user_id, is_read);

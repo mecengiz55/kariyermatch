@@ -1,5 +1,6 @@
 import { getDb } from './utils/db.js';
 import { getUserFromEvent, jsonResponse, corsHeaders } from './utils/helpers.js';
+import { createNotification } from './notifications.js';
 
 export async function handler(event) {
     if (event.httpMethod === 'OPTIONS') {
@@ -151,6 +152,21 @@ export async function handler(event) {
           `;
                 }
             }
+
+            // Tüm öğrencilere bildirim gönder
+            try {
+                const students = await sql`SELECT id FROM users WHERE role = 'student'`;
+                for (const student of students) {
+                    await createNotification(
+                        sql,
+                        student.id,
+                        'new_job',
+                        'Yeni İlan',
+                        `Yeni ilan yayınlandı: "${title}"`,
+                        `#/jobs/${jobId}`
+                    );
+                }
+            } catch (e) { console.error('Notif error:', e); }
 
             return jsonResponse(201, { job: result[0] });
         }

@@ -1,10 +1,10 @@
 // ── Employer Dashboard ──
-import { employersAPI, jobsAPI, matchAPI, applicationsAPI, getUser } from '../api.js';
+import { employersAPI, jobsAPI, matchAPI, applicationsAPI, notificationsAPI, getUser } from '../api.js';
 
 export async function renderEmployerDashboard(container) {
-    const user = getUser();
+  const user = getUser();
 
-    container.innerHTML = `
+  container.innerHTML = `
     <div class="container">
       <div class="dashboard">
         <!-- Sidebar -->
@@ -24,6 +24,7 @@ export async function renderEmployerDashboard(container) {
               <li><a href="javascript:void(0)" class="active" data-tab="overview">📊 Genel Bakış</a></li>
               <li><a href="javascript:void(0)" data-tab="jobs">📋 İlanlarım</a></li>
               <li><a href="javascript:void(0)" data-tab="create">➕ Yeni İlan</a></li>
+              <li><a href="javascript:void(0)" data-tab="notifications">🔔 Bildirimler</a></li>
             </ul>
           </div>
         </aside>
@@ -36,40 +37,41 @@ export async function renderEmployerDashboard(container) {
     </div>
   `;
 
-    // Tab nav
-    document.querySelectorAll('.sidebar-nav a').forEach(link => {
-        link.addEventListener('click', (e) => {
-            document.querySelectorAll('.sidebar-nav a').forEach(l => l.classList.remove('active'));
-            e.target.classList.add('active');
-            loadEmpTab(e.target.dataset.tab);
-        });
+  // Tab nav
+  document.querySelectorAll('.sidebar-nav a').forEach(link => {
+    link.addEventListener('click', (e) => {
+      document.querySelectorAll('.sidebar-nav a').forEach(l => l.classList.remove('active'));
+      e.target.classList.add('active');
+      loadEmpTab(e.target.dataset.tab);
     });
+  });
 
-    loadEmpTab('overview');
+  loadEmpTab('overview');
 }
 
 async function loadEmpTab(tab) {
-    const content = document.getElementById('empDashContent');
-    content.innerHTML = '<div style="display:flex;justify-content:center;padding:4rem;"><div class="spinner"></div></div>';
+  const content = document.getElementById('empDashContent');
+  content.innerHTML = '<div style="display:flex;justify-content:center;padding:4rem;"><div class="spinner"></div></div>';
 
-    switch (tab) {
-        case 'overview': await renderEmpOverview(content); break;
-        case 'jobs': await renderEmpJobs(content); break;
-        case 'create': renderCreateJob(content); break;
-    }
+  switch (tab) {
+    case 'overview': await renderEmpOverview(content); break;
+    case 'jobs': await renderEmpJobs(content); break;
+    case 'create': renderCreateJob(content); break;
+    case 'notifications': await renderEmpNotifications(content); break;
+  }
 }
 
 async function renderEmpOverview(content) {
-    let jobs = [];
-    try {
-        const data = await jobsAPI.my();
-        jobs = data.jobs || [];
-    } catch (e) { /* demo */ }
+  let jobs = [];
+  try {
+    const data = await jobsAPI.my();
+    jobs = data.jobs || [];
+  } catch (e) { /* demo */ }
 
-    const activeJobs = jobs.filter(j => j.is_active).length;
-    const totalApps = jobs.reduce((sum, j) => sum + (parseInt(j.application_count) || 0), 0);
+  const activeJobs = jobs.filter(j => j.is_active).length;
+  const totalApps = jobs.reduce((sum, j) => sum + (parseInt(j.application_count) || 0), 0);
 
-    content.innerHTML = `
+  content.innerHTML = `
     <div class="dashboard-header">
       <h1>📊 Genel Bakış</h1>
       <button class="btn btn-primary btn-sm" id="newJobOverviewBtn">+ Yeni İlan</button>
@@ -115,27 +117,27 @@ async function renderEmpOverview(content) {
     </div>
   `;
 
-    // New job button
-    document.getElementById('newJobOverviewBtn')?.addEventListener('click', () => {
-        document.querySelectorAll('.sidebar-nav a').forEach(l => l.classList.remove('active'));
-        document.querySelector('.sidebar-nav a[data-tab="create"]').classList.add('active');
-        loadEmpTab('create');
-    });
+  // New job button
+  document.getElementById('newJobOverviewBtn')?.addEventListener('click', () => {
+    document.querySelectorAll('.sidebar-nav a').forEach(l => l.classList.remove('active'));
+    document.querySelector('.sidebar-nav a[data-tab="create"]').classList.add('active');
+    loadEmpTab('create');
+  });
 
-    // View candidates
-    content.querySelectorAll('.view-candidates').forEach(btn => {
-        btn.addEventListener('click', () => showCandidates(btn.dataset.jobId));
-    });
+  // View candidates
+  content.querySelectorAll('.view-candidates').forEach(btn => {
+    btn.addEventListener('click', () => showCandidates(btn.dataset.jobId));
+  });
 }
 
 async function renderEmpJobs(content) {
-    let jobs = [];
-    try {
-        const data = await jobsAPI.my();
-        jobs = data.jobs || [];
-    } catch (e) { /* demo */ }
+  let jobs = [];
+  try {
+    const data = await jobsAPI.my();
+    jobs = data.jobs || [];
+  } catch (e) { /* demo */ }
 
-    content.innerHTML = `
+  content.innerHTML = `
     <div class="dashboard-header">
       <h1>📋 İlanlarım</h1>
       <button class="btn btn-primary btn-sm" id="newJobListBtn">+ Yeni İlan</button>
@@ -183,49 +185,49 @@ async function renderEmpJobs(content) {
     `}
   `;
 
-    // Event listeners
-    document.getElementById('newJobListBtn')?.addEventListener('click', () => {
-        document.querySelectorAll('.sidebar-nav a').forEach(l => l.classList.remove('active'));
-        document.querySelector('.sidebar-nav a[data-tab="create"]').classList.add('active');
-        loadEmpTab('create');
-    });
+  // Event listeners
+  document.getElementById('newJobListBtn')?.addEventListener('click', () => {
+    document.querySelectorAll('.sidebar-nav a').forEach(l => l.classList.remove('active'));
+    document.querySelector('.sidebar-nav a[data-tab="create"]').classList.add('active');
+    loadEmpTab('create');
+  });
 
-    content.querySelectorAll('.view-candidates').forEach(btn => {
-        btn.addEventListener('click', () => showCandidates(btn.dataset.jobId));
-    });
+  content.querySelectorAll('.view-candidates').forEach(btn => {
+    btn.addEventListener('click', () => showCandidates(btn.dataset.jobId));
+  });
 
-    content.querySelectorAll('.toggle-job').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const isActive = btn.dataset.active === 'true';
-            try {
-                await jobsAPI.update(btn.dataset.jobId, { isActive: !isActive });
-                window.showToast(isActive ? 'İlan pasife alındı' : 'İlan aktifleştirildi', 'success');
-                renderEmpJobs(content);
-            } catch (error) {
-                window.showToast(error.message, 'error');
-            }
-        });
+  content.querySelectorAll('.toggle-job').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const isActive = btn.dataset.active === 'true';
+      try {
+        await jobsAPI.update(btn.dataset.jobId, { isActive: !isActive });
+        window.showToast(isActive ? 'İlan pasife alındı' : 'İlan aktifleştirildi', 'success');
+        renderEmpJobs(content);
+      } catch (error) {
+        window.showToast(error.message, 'error');
+      }
     });
+  });
 
-    content.querySelectorAll('.delete-job').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            if (confirm('Bu ilanı silmek istediğinize emin misiniz?')) {
-                try {
-                    await jobsAPI.delete(btn.dataset.jobId);
-                    window.showToast('İlan silindi', 'success');
-                    renderEmpJobs(content);
-                } catch (error) {
-                    window.showToast(error.message, 'error');
-                }
-            }
-        });
+  content.querySelectorAll('.delete-job').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (confirm('Bu ilanı silmek istediğinize emin misiniz?')) {
+        try {
+          await jobsAPI.delete(btn.dataset.jobId);
+          window.showToast('İlan silindi', 'success');
+          renderEmpJobs(content);
+        } catch (error) {
+          window.showToast(error.message, 'error');
+        }
+      }
     });
+  });
 }
 
 function renderCreateJob(content) {
-    let requirements = [];
+  let requirements = [];
 
-    content.innerHTML = `
+  content.innerHTML = `
     <div class="dashboard-header">
       <h1>➕ Yeni İlan Oluştur</h1>
     </div>
@@ -306,72 +308,72 @@ function renderCreateJob(content) {
     </div>
   `;
 
-    // Add requirement
-    document.getElementById('addReqBtn').addEventListener('click', () => {
-        const name = document.getElementById('reqSkillName').value.trim();
-        if (!name) return;
-        const level = parseInt(document.getElementById('reqLevel').value);
-        const isRequired = document.getElementById('reqRequired').checked;
+  // Add requirement
+  document.getElementById('addReqBtn').addEventListener('click', () => {
+    const name = document.getElementById('reqSkillName').value.trim();
+    if (!name) return;
+    const level = parseInt(document.getElementById('reqLevel').value);
+    const isRequired = document.getElementById('reqRequired').checked;
 
-        requirements.push({ skillName: name, minProficiency: level, isRequired });
-        renderRequirements();
-        document.getElementById('reqSkillName').value = '';
-    });
+    requirements.push({ skillName: name, minProficiency: level, isRequired });
+    renderRequirements();
+    document.getElementById('reqSkillName').value = '';
+  });
 
-    function renderRequirements() {
-        const list = document.getElementById('reqList');
-        list.innerHTML = requirements.map((req, i) => `
+  function renderRequirements() {
+    const list = document.getElementById('reqList');
+    list.innerHTML = requirements.map((req, i) => `
       <span class="skill-tag">
         ${req.skillName} (Lv.${req.minProficiency}) ${req.isRequired ? '' : '(tercih)'}
         <button class="remove-btn" data-idx="${i}">✕</button>
       </span>
     `).join('');
 
-        list.querySelectorAll('.remove-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                requirements.splice(parseInt(btn.dataset.idx), 1);
-                renderRequirements();
-            });
-        });
-    }
-
-    // Submit
-    document.getElementById('createJobForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const btn = document.getElementById('submitJobBtn');
-        btn.disabled = true;
-        btn.textContent = 'Oluşturuluyor...';
-
-        try {
-            await jobsAPI.create({
-                title: document.getElementById('jobTitle').value,
-                description: document.getElementById('jobDescription').value,
-                type: document.getElementById('jobType').value,
-                location: document.getElementById('jobLocation').value,
-                isRemote: document.getElementById('jobRemote').value === 'true',
-                salaryMin: parseInt(document.getElementById('jobSalaryMin').value) || null,
-                salaryMax: parseInt(document.getElementById('jobSalaryMax').value) || null,
-                deadline: document.getElementById('jobDeadline').value || null,
-                requirements
-            });
-
-            window.showToast('İlan başarıyla oluşturuldu! 🎉', 'success');
-            document.querySelectorAll('.sidebar-nav a').forEach(l => l.classList.remove('active'));
-            document.querySelector('.sidebar-nav a[data-tab="jobs"]').classList.add('active');
-            loadEmpTab('jobs');
-        } catch (error) {
-            window.showToast(error.message, 'error');
-            btn.disabled = false;
-            btn.textContent = 'İlanı Yayınla 🚀';
-        }
+    list.querySelectorAll('.remove-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        requirements.splice(parseInt(btn.dataset.idx), 1);
+        renderRequirements();
+      });
     });
+  }
+
+  // Submit
+  document.getElementById('createJobForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('submitJobBtn');
+    btn.disabled = true;
+    btn.textContent = 'Oluşturuluyor...';
+
+    try {
+      await jobsAPI.create({
+        title: document.getElementById('jobTitle').value,
+        description: document.getElementById('jobDescription').value,
+        type: document.getElementById('jobType').value,
+        location: document.getElementById('jobLocation').value,
+        isRemote: document.getElementById('jobRemote').value === 'true',
+        salaryMin: parseInt(document.getElementById('jobSalaryMin').value) || null,
+        salaryMax: parseInt(document.getElementById('jobSalaryMax').value) || null,
+        deadline: document.getElementById('jobDeadline').value || null,
+        requirements
+      });
+
+      window.showToast('İlan başarıyla oluşturuldu! 🎉', 'success');
+      document.querySelectorAll('.sidebar-nav a').forEach(l => l.classList.remove('active'));
+      document.querySelector('.sidebar-nav a[data-tab="jobs"]').classList.add('active');
+      loadEmpTab('jobs');
+    } catch (error) {
+      window.showToast(error.message, 'error');
+      btn.disabled = false;
+      btn.textContent = 'İlanı Yayınla 🚀';
+    }
+  });
 }
 
 async function showCandidates(jobId) {
-    // Create modal
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay active';
-    overlay.innerHTML = `
+  // Create modal
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay active';
+  overlay.innerHTML = `
     <div class="modal" style="max-width:700px;">
       <div class="modal-header">
         <h2>👥 Uygun Adaylar</h2>
@@ -382,22 +384,22 @@ async function showCandidates(jobId) {
       </div>
     </div>
   `;
-    document.body.appendChild(overlay);
+  document.body.appendChild(overlay);
 
-    overlay.querySelector('#closeCandidatesModal').addEventListener('click', () => overlay.remove());
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  overlay.querySelector('#closeCandidatesModal').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
 
-    try {
-        const data = await matchAPI.getCandidates(jobId);
-        const candidates = data.candidates || [];
+  try {
+    const data = await matchAPI.getCandidates(jobId);
+    const candidates = data.candidates || [];
 
-        const list = overlay.querySelector('#candidatesList');
-        if (candidates.length === 0) {
-            list.innerHTML = '<div class="empty-state" style="padding:var(--space-6);"><p class="text-muted">Henüz uygun aday bulunamadı</p></div>';
-            return;
-        }
+    const list = overlay.querySelector('#candidatesList');
+    if (candidates.length === 0) {
+      list.innerHTML = '<div class="empty-state" style="padding:var(--space-6);"><p class="text-muted">Henüz uygun aday bulunamadı</p></div>';
+      return;
+    }
 
-        list.innerHTML = candidates.map(c => `
+    list.innerHTML = candidates.map(c => `
       <div style="display:flex;align-items:flex-start;gap:var(--space-4);padding:var(--space-4);border-bottom:1px solid var(--border-color);">
         <div class="profile-avatar" style="width:48px;height:48px;font-size:var(--font-lg);flex-shrink:0;">
           ${(c.full_name || 'A')[0]}
@@ -419,7 +421,74 @@ async function showCandidates(jobId) {
         </div>
       </div>
     `).join('');
-    } catch (error) {
-        overlay.querySelector('#candidatesList').innerHTML = `<p class="text-muted" style="padding:var(--space-4);">⚠️ ${error.message}</p>`;
-    }
+  } catch (error) {
+    overlay.querySelector('#candidatesList').innerHTML = `<p class="text-muted" style="padding:var(--space-4);">⚠️ ${error.message}</p>`;
+  }
+}
+
+async function renderEmpNotifications(content) {
+  let notifications = [];
+  try {
+    const data = await notificationsAPI.list();
+    notifications = data.notifications || [];
+  } catch (e) { /* */ }
+
+  const notifIcons = {
+    'new_application': '📩',
+    'application_status': '📋',
+    'new_job': '💼',
+    'new_match': '🎯',
+  };
+
+  content.innerHTML = `
+    <div class="dashboard-header">
+      <h1>🔔 Bildirimler</h1>
+      <button class="btn btn-secondary btn-sm" id="markAllReadEmpBtn">✓ Tümünü Okundu Yap</button>
+    </div>
+    ${notifications.length > 0 ? `
+      <div class="card">
+        ${notifications.map(n => `
+          <div class="notif-item ${n.is_read ? '' : 'unread'}" style="padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--border-color);cursor:pointer;" data-id="${n.id}" data-link="${n.link || ''}">
+            <div class="notif-item-icon">${notifIcons[n.type] || '🔔'}</div>
+            <div class="notif-item-content">
+              <div class="notif-item-title">${n.title}</div>
+              <div class="notif-item-message">${n.message || ''}</div>
+              <div class="notif-item-time">${n.created_at ? new Date(n.created_at).toLocaleString('tr-TR') : ''}</div>
+            </div>
+            ${!n.is_read ? '<div class="notif-item-dot"></div>' : ''}
+          </div>
+        `).join('')}
+      </div>
+    ` : `
+      <div class="empty-state">
+        <div class="empty-state-icon">🔔</div>
+        <h3>Henüz Bildirim Yok</h3>
+        <p>Yeni başvurular ve güncellemeler burada görünecek</p>
+      </div>
+    `}
+  `;
+
+  // Mark all read
+  document.getElementById('markAllReadEmpBtn')?.addEventListener('click', async () => {
+    try {
+      await notificationsAPI.markAllRead();
+      content.querySelectorAll('.notif-item').forEach(item => {
+        item.classList.remove('unread');
+        item.querySelector('.notif-item-dot')?.remove();
+      });
+      window.showToast('Tüm bildirimler okundu', 'success');
+    } catch (e) { window.showToast('Hata oluştu', 'error'); }
+  });
+
+  // Click on notification
+  content.querySelectorAll('.notif-item').forEach(item => {
+    item.addEventListener('click', async () => {
+      const id = item.dataset.id;
+      const link = item.dataset.link;
+      try { await notificationsAPI.markRead(id); } catch (e) { /* */ }
+      item.classList.remove('unread');
+      item.querySelector('.notif-item-dot')?.remove();
+      if (link) window.location.hash = link;
+    });
+  });
 }

@@ -1,11 +1,11 @@
 // ── Student Dashboard ──
-import { studentsAPI, matchAPI, applicationsAPI, getUser } from '../api.js';
+import { studentsAPI, matchAPI, applicationsAPI, notificationsAPI, getUser } from '../api.js';
 import { getTimeAgo } from './jobs.js';
 
 export async function renderStudentDashboard(container) {
-    const user = getUser();
+  const user = getUser();
 
-    container.innerHTML = `
+  container.innerHTML = `
     <div class="container">
       <div class="dashboard">
         <!-- Sidebar -->
@@ -26,6 +26,7 @@ export async function renderStudentDashboard(container) {
               <li><a href="javascript:void(0)" data-tab="matches">🎯 Eşleşmeler</a></li>
               <li><a href="javascript:void(0)" data-tab="applications">📋 Başvurularım</a></li>
               <li><a href="javascript:void(0)" data-tab="skills">⚡ Becerilerim</a></li>
+              <li><a href="javascript:void(0)" data-tab="notifications">🔔 Bildirimler</a></li>
             </ul>
           </div>
         </aside>
@@ -38,58 +39,59 @@ export async function renderStudentDashboard(container) {
     </div>
   `;
 
-    // Tab navigation
-    document.querySelectorAll('.sidebar-nav a').forEach(link => {
-        link.addEventListener('click', (e) => {
-            document.querySelectorAll('.sidebar-nav a').forEach(l => l.classList.remove('active'));
-            e.target.classList.add('active');
-            const tab = e.target.dataset.tab;
-            loadTab(tab);
-        });
+  // Tab navigation
+  document.querySelectorAll('.sidebar-nav a').forEach(link => {
+    link.addEventListener('click', (e) => {
+      document.querySelectorAll('.sidebar-nav a').forEach(l => l.classList.remove('active'));
+      e.target.classList.add('active');
+      const tab = e.target.dataset.tab;
+      loadTab(tab);
     });
+  });
 
-    // Load default tab
-    loadTab('overview');
+  // Load default tab
+  loadTab('overview');
 }
 
 async function loadTab(tab) {
-    const content = document.getElementById('dashContent');
-    content.innerHTML = '<div style="display:flex;justify-content:center;padding:4rem;"><div class="spinner"></div></div>';
+  const content = document.getElementById('dashContent');
+  content.innerHTML = '<div style="display:flex;justify-content:center;padding:4rem;"><div class="spinner"></div></div>';
 
-    switch (tab) {
-        case 'overview': await renderOverview(content); break;
-        case 'matches': await renderMatches(content); break;
-        case 'applications': await renderApplications(content); break;
-        case 'skills': await renderSkills(content); break;
-    }
+  switch (tab) {
+    case 'overview': await renderOverview(content); break;
+    case 'matches': await renderMatches(content); break;
+    case 'applications': await renderApplications(content); break;
+    case 'skills': await renderSkills(content); break;
+    case 'notifications': await renderNotifications(content); break;
+  }
 }
 
 async function renderOverview(content) {
-    let profile = null;
-    let matches = [];
-    let applications = [];
+  let profile = null;
+  let matches = [];
+  let applications = [];
 
-    try {
-        const pData = await studentsAPI.getProfile();
-        profile = pData.profile;
-    } catch (e) { /* demo */ }
+  try {
+    const pData = await studentsAPI.getProfile();
+    profile = pData.profile;
+  } catch (e) { /* demo */ }
 
-    try {
-        const mData = await matchAPI.getMatchedJobs();
-        matches = mData.matches || [];
-    } catch (e) { /* demo */ }
+  try {
+    const mData = await matchAPI.getMatchedJobs();
+    matches = mData.matches || [];
+  } catch (e) { /* demo */ }
 
-    try {
-        const aData = await applicationsAPI.myApplications();
-        applications = aData.applications || [];
-    } catch (e) { /* demo */ }
+  try {
+    const aData = await applicationsAPI.myApplications();
+    applications = aData.applications || [];
+  } catch (e) { /* demo */ }
 
-    const skillCount = profile?.skills?.length || 0;
-    const matchCount = matches.length;
-    const appCount = applications.length;
-    const profileComplete = getProfileCompletion(profile);
+  const skillCount = profile?.skills?.length || 0;
+  const matchCount = matches.length;
+  const appCount = applications.length;
+  const profileComplete = getProfileCompletion(profile);
 
-    content.innerHTML = `
+  content.innerHTML = `
     <div class="dashboard-header">
       <h1>📊 Genel Bakış</h1>
     </div>
@@ -152,25 +154,25 @@ async function renderOverview(content) {
     </div>
   `;
 
-    // Tab switch links
-    content.querySelectorAll('[data-show-tab]').forEach(link => {
-        link.addEventListener('click', () => {
-            const tab = link.dataset.showTab;
-            document.querySelectorAll('.sidebar-nav a').forEach(l => l.classList.remove('active'));
-            document.querySelector(`.sidebar-nav a[data-tab="${tab}"]`).classList.add('active');
-            loadTab(tab);
-        });
+  // Tab switch links
+  content.querySelectorAll('[data-show-tab]').forEach(link => {
+    link.addEventListener('click', () => {
+      const tab = link.dataset.showTab;
+      document.querySelectorAll('.sidebar-nav a').forEach(l => l.classList.remove('active'));
+      document.querySelector(`.sidebar-nav a[data-tab="${tab}"]`).classList.add('active');
+      loadTab(tab);
     });
+  });
 }
 
 async function renderMatches(content) {
-    let matches = [];
-    try {
-        const data = await matchAPI.getMatchedJobs();
-        matches = data.matches || [];
-    } catch (e) { /* demo */ }
+  let matches = [];
+  try {
+    const data = await matchAPI.getMatchedJobs();
+    matches = data.matches || [];
+  } catch (e) { /* demo */ }
 
-    content.innerHTML = `
+  content.innerHTML = `
     <div class="dashboard-header">
       <h1>🎯 Eşleşmeler</h1>
     </div>
@@ -212,27 +214,27 @@ async function renderMatches(content) {
 }
 
 async function renderApplications(content) {
-    let applications = [];
-    try {
-        const data = await applicationsAPI.myApplications();
-        applications = data.applications || [];
-    } catch (e) { /* demo */ }
+  let applications = [];
+  try {
+    const data = await applicationsAPI.myApplications();
+    applications = data.applications || [];
+  } catch (e) { /* demo */ }
 
-    const statusColors = {
-        pending: 'badge-warning',
-        reviewed: 'badge-primary',
-        accepted: 'badge-success',
-        rejected: 'badge-error'
-    };
+  const statusColors = {
+    pending: 'badge-warning',
+    reviewed: 'badge-primary',
+    accepted: 'badge-success',
+    rejected: 'badge-error'
+  };
 
-    const statusLabels = {
-        pending: 'Beklemede',
-        reviewed: 'İncelendi',
-        accepted: 'Kabul Edildi',
-        rejected: 'Reddedildi'
-    };
+  const statusLabels = {
+    pending: 'Beklemede',
+    reviewed: 'İncelendi',
+    accepted: 'Kabul Edildi',
+    rejected: 'Reddedildi'
+  };
 
-    content.innerHTML = `
+  content.innerHTML = `
     <div class="dashboard-header">
       <h1>📋 Başvurularım</h1>
     </div>
@@ -273,15 +275,15 @@ async function renderApplications(content) {
 }
 
 async function renderSkills(content) {
-    let profile = null;
-    try {
-        const data = await studentsAPI.getProfile();
-        profile = data.profile;
-    } catch (e) { /* demo */ }
+  let profile = null;
+  try {
+    const data = await studentsAPI.getProfile();
+    profile = data.profile;
+  } catch (e) { /* demo */ }
 
-    const skills = profile?.skills || [];
+  const skills = profile?.skills || [];
 
-    content.innerHTML = `
+  content.innerHTML = `
     <div class="dashboard-header">
       <h1>⚡ Becerilerim</h1>
       <button class="btn btn-primary btn-sm" id="addSkillBtn">+ Beceri Ekle</button>
@@ -335,45 +337,112 @@ async function renderSkills(content) {
     `}
   `;
 
-    // Show/hide add form
-    const addBtn = document.getElementById('addSkillBtn');
-    const form = document.getElementById('addSkillForm');
-    addBtn.addEventListener('click', () => form.classList.toggle('hidden'));
-    document.getElementById('cancelSkillBtn').addEventListener('click', () => form.classList.add('hidden'));
+  // Show/hide add form
+  const addBtn = document.getElementById('addSkillBtn');
+  const form = document.getElementById('addSkillForm');
+  addBtn.addEventListener('click', () => form.classList.toggle('hidden'));
+  document.getElementById('cancelSkillBtn').addEventListener('click', () => form.classList.add('hidden'));
 
-    // Save skill
-    document.getElementById('saveSkillBtn').addEventListener('click', async () => {
-        const skillName = document.getElementById('skillNameInput').value.trim();
-        const level = parseInt(document.getElementById('skillLevelInput').value);
-        if (!skillName) { window.showToast('Beceri adı zorunludur', 'error'); return; }
-        try {
-            await studentsAPI.addSkill({ skillName, proficiencyLevel: level });
-            window.showToast('Beceri eklendi!', 'success');
-            renderSkills(content);
-        } catch (error) {
-            window.showToast(error.message, 'error');
-        }
-    });
+  // Save skill
+  document.getElementById('saveSkillBtn').addEventListener('click', async () => {
+    const skillName = document.getElementById('skillNameInput').value.trim();
+    const level = parseInt(document.getElementById('skillLevelInput').value);
+    if (!skillName) { window.showToast('Beceri adı zorunludur', 'error'); return; }
+    try {
+      await studentsAPI.addSkill({ skillName, proficiencyLevel: level });
+      window.showToast('Beceri eklendi!', 'success');
+      renderSkills(content);
+    } catch (error) {
+      window.showToast(error.message, 'error');
+    }
+  });
 
-    // Delete skills
-    content.querySelectorAll('.delete-skill').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            try {
-                await studentsAPI.removeSkill(btn.dataset.id);
-                window.showToast('Beceri silindi', 'success');
-                renderSkills(content);
-            } catch (error) {
-                window.showToast(error.message, 'error');
-            }
-        });
+  // Delete skills
+  content.querySelectorAll('.delete-skill').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      try {
+        await studentsAPI.removeSkill(btn.dataset.id);
+        window.showToast('Beceri silindi', 'success');
+        renderSkills(content);
+      } catch (error) {
+        window.showToast(error.message, 'error');
+      }
     });
+  });
 }
 
 function getProfileCompletion(profile) {
-    if (!profile) return 0;
-    const fields = ['university', 'department', 'graduation_year', 'bio', 'city', 'phone'];
-    const filled = fields.filter(f => profile[f]).length;
-    const hasSkills = (profile.skills && profile.skills.length > 0) ? 1 : 0;
-    const hasCv = profile.cv_url ? 1 : 0;
-    return Math.round(((filled + hasSkills + hasCv) / (fields.length + 2)) * 100);
+  if (!profile) return 0;
+  const fields = ['university', 'department', 'graduation_year', 'bio', 'city', 'phone'];
+  const filled = fields.filter(f => profile[f]).length;
+  const hasSkills = (profile.skills && profile.skills.length > 0) ? 1 : 0;
+  const hasCv = profile.cv_url ? 1 : 0;
+  return Math.round(((filled + hasSkills + hasCv) / (fields.length + 2)) * 100);
+}
+
+async function renderNotifications(content) {
+  let notifications = [];
+  try {
+    const data = await notificationsAPI.list();
+    notifications = data.notifications || [];
+  } catch (e) { /* */ }
+
+  const notifIcons = {
+    'new_application': '📩',
+    'application_status': '📋',
+    'new_job': '💼',
+    'new_match': '🎯',
+  };
+
+  content.innerHTML = `
+    <div class="dashboard-header">
+      <h1>🔔 Bildirimler</h1>
+      <button class="btn btn-secondary btn-sm" id="markAllReadDashBtn">✓ Tümünü Okundu Yap</button>
+    </div>
+    ${notifications.length > 0 ? `
+      <div class="card">
+        ${notifications.map(n => `
+          <div class="notif-item ${n.is_read ? '' : 'unread'}" style="padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--border-color);cursor:pointer;" data-id="${n.id}" data-link="${n.link || ''}">
+            <div class="notif-item-icon">${notifIcons[n.type] || '🔔'}</div>
+            <div class="notif-item-content">
+              <div class="notif-item-title">${n.title}</div>
+              <div class="notif-item-message">${n.message || ''}</div>
+              <div class="notif-item-time">${n.created_at ? new Date(n.created_at).toLocaleString('tr-TR') : ''}</div>
+            </div>
+            ${!n.is_read ? '<div class="notif-item-dot"></div>' : ''}
+          </div>
+        `).join('')}
+      </div>
+    ` : `
+      <div class="empty-state">
+        <div class="empty-state-icon">🔔</div>
+        <h3>Henüz Bildirim Yok</h3>
+        <p>Yeni eşleşmeler ve başvuru güncellemeleri burada görünecek</p>
+      </div>
+    `}
+  `;
+
+  // Mark all read
+  document.getElementById('markAllReadDashBtn')?.addEventListener('click', async () => {
+    try {
+      await notificationsAPI.markAllRead();
+      content.querySelectorAll('.notif-item').forEach(item => {
+        item.classList.remove('unread');
+        item.querySelector('.notif-item-dot')?.remove();
+      });
+      window.showToast('Tüm bildirimler okundu', 'success');
+    } catch (e) { window.showToast('Hata oluştu', 'error'); }
+  });
+
+  // Click on notification
+  content.querySelectorAll('.notif-item').forEach(item => {
+    item.addEventListener('click', async () => {
+      const id = item.dataset.id;
+      const link = item.dataset.link;
+      try { await notificationsAPI.markRead(id); } catch (e) { /* */ }
+      item.classList.remove('unread');
+      item.querySelector('.notif-item-dot')?.remove();
+      if (link) window.location.hash = link;
+    });
+  });
 }

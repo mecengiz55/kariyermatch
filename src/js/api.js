@@ -108,4 +108,29 @@ export const applicationsAPI = {
     updateStatus: (id, status) => apiRequest(`/applications/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
 };
 
+// Admin API
+export const adminAPI = {
+    stats: () => apiRequest('/admin/stats'),
+    users: () => apiRequest('/admin/users'),
+    deleteUser: (id) => apiRequest(`/admin/users/${id}`, { method: 'DELETE' }),
+    updateUserRole: (id, role) => apiRequest(`/admin/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role }) }),
+    jobs: () => apiRequest('/admin/jobs'),
+    createJob: (data) => apiRequest('/admin/jobs', { method: 'POST', body: JSON.stringify(data) }),
+    editJob: (id, data) => apiRequest(`/admin/jobs/${id}/edit`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteJob: (id) => apiRequest(`/admin/jobs/${id}`, { method: 'DELETE' }),
+    toggleJob: (id) => apiRequest(`/admin/jobs/${id}/toggle`, { method: 'PUT' }),
+    applications: () => apiRequest('/admin/applications'),
+    getSettings: () => apiRequest('/admin/settings'),
+    updateSettings: (settings) => apiRequest('/admin/settings', { method: 'PUT', body: JSON.stringify({ settings }) }),
+};
+
+// Notifications API
+export const notificationsAPI = {
+    list: () => apiRequest('/notifications'),
+    unreadCount: () => apiRequest('/notifications/unread-count'),
+    markRead: (id) => apiRequest(`/notifications/${id}/read`, { method: 'PUT' }),
+    markAllRead: () => apiRequest('/notifications/read-all', { method: 'PUT' }),
+    delete: (id) => apiRequest(`/notifications/${id}`, { method: 'DELETE' }),
+};
+
 export { getToken, setToken, removeToken, getUser, setUser, removeUser };
