@@ -1,27 +1,29 @@
 // ── Profile Edit Page ──
-import { getUser, studentsAPI, employersAPI } from '../api.js';
+import { getUser, studentsAPI, employersAPI, uploadFile } from '../api.js';
 
 export async function renderProfile(container) {
-    const user = getUser();
-    if (!user) { window.location.hash = '#/login'; return; }
+  const user = getUser();
+  if (!user) { window.location.hash = '#/login'; return; }
 
-    if (user.role === 'student') {
-        await renderStudentProfile(container);
-    } else {
-        await renderEmployerProfile(container);
-    }
+  if (user.role === 'student') {
+    await renderStudentProfile(container);
+  } else {
+    await renderEmployerProfile(container);
+  }
 }
 
 async function renderStudentProfile(container) {
-    const user = getUser();
-    let profile = {};
+  const user = getUser();
+  let profile = {};
 
-    try {
-        const data = await studentsAPI.getProfile();
-        profile = data.profile || {};
-    } catch (e) { /* new profile */ }
+  try {
+    const data = await studentsAPI.getProfile();
+    profile = data.profile || {};
+  } catch (e) { /* new profile */ }
 
-    container.innerHTML = `
+  const languages = profile.languages || [];
+
+  container.innerHTML = `
     <div class="container" style="max-width:800px;padding:var(--space-8) var(--space-6);">
       <a href="#/dashboard" class="btn btn-ghost btn-sm" style="margin-bottom:var(--space-6);">← Dashboard'a Dön</a>
 
@@ -35,7 +37,7 @@ async function renderStudentProfile(container) {
         </div>
       </div>
 
-      <div class="card">
+      <div class="card" style="margin-bottom:var(--space-6);">
         <h3 style="margin-bottom:var(--space-6);">📝 Profil Bilgileri</h3>
         <form id="profileForm">
           <div class="form-row">
@@ -101,51 +103,71 @@ async function renderStudentProfile(container) {
           <button type="submit" class="btn btn-primary btn-lg w-full" id="saveProfileBtn">💾 Profili Kaydet</button>
         </form>
       </div>
+
+      <!-- Dil Becerileri Hızlı Bakış -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">🌍 Dil Becerileri</h3>
+          <a href="#/dashboard" class="btn btn-ghost btn-sm" onclick="setTimeout(()=>{document.querySelector('[data-tab=languages]')?.click()},200)">Yönet →</a>
+        </div>
+        ${languages.length > 0 ? `
+          <div class="lang-cards-grid">
+            ${languages.map(l => `
+              <div style="text-align:center;padding:var(--space-3);background:var(--bg-glass);border-radius:var(--radius-lg);border:1px solid var(--border-color);">
+                <div style="font-weight:700;font-size:var(--font-sm);">${l.exam_type}</div>
+                <div style="font-size:var(--font-xl);font-weight:800;color:var(--primary-400);">${l.score}</div>
+              </div>
+            `).join('')}
+          </div>
+        ` : `
+          <p class="text-muted text-sm">Henüz dil skoru eklenmemiş. Dashboard'dan ekleyebilirsiniz.</p>
+        `}
+      </div>
     </div>
   `;
 
-    document.getElementById('profileForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const btn = document.getElementById('saveProfileBtn');
-        btn.disabled = true;
-        btn.textContent = 'Kaydediliyor...';
+  document.getElementById('profileForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('saveProfileBtn');
+    btn.disabled = true;
+    btn.textContent = 'Kaydediliyor...';
 
-        try {
-            await studentsAPI.updateProfile({
-                fullName: document.getElementById('pFullName').value,
-                phone: document.getElementById('pPhone').value,
-                university: document.getElementById('pUniversity').value,
-                department: document.getElementById('pDepartment').value,
-                graduationYear: parseInt(document.getElementById('pGradYear').value) || null,
-                gpa: parseFloat(document.getElementById('pGpa').value) || null,
-                city: document.getElementById('pCity').value,
-                bio: document.getElementById('pBio').value,
-                linkedinUrl: document.getElementById('pLinkedin').value,
-                githubUrl: document.getElementById('pGithub').value,
-                cvUrl: document.getElementById('pCvUrl').value
-            });
+    try {
+      await studentsAPI.updateProfile({
+        fullName: document.getElementById('pFullName').value,
+        phone: document.getElementById('pPhone').value,
+        university: document.getElementById('pUniversity').value,
+        department: document.getElementById('pDepartment').value,
+        graduationYear: parseInt(document.getElementById('pGradYear').value) || null,
+        gpa: parseFloat(document.getElementById('pGpa').value) || null,
+        city: document.getElementById('pCity').value,
+        bio: document.getElementById('pBio').value,
+        linkedinUrl: document.getElementById('pLinkedin').value,
+        githubUrl: document.getElementById('pGithub').value,
+        cvUrl: document.getElementById('pCvUrl').value
+      });
 
-            window.showToast('Profil başarıyla güncellendi! ✅', 'success');
-            btn.disabled = false;
-            btn.textContent = '💾 Profili Kaydet';
-        } catch (error) {
-            window.showToast(error.message, 'error');
-            btn.disabled = false;
-            btn.textContent = '💾 Profili Kaydet';
-        }
-    });
+      window.showToast('Profil başarıyla güncellendi! ✅', 'success');
+      btn.disabled = false;
+      btn.textContent = '💾 Profili Kaydet';
+    } catch (error) {
+      window.showToast(error.message, 'error');
+      btn.disabled = false;
+      btn.textContent = '💾 Profili Kaydet';
+    }
+  });
 }
 
 async function renderEmployerProfile(container) {
-    const user = getUser();
-    let profile = {};
+  const user = getUser();
+  let profile = {};
 
-    try {
-        const data = await employersAPI.getProfile();
-        profile = data.profile || {};
-    } catch (e) { /* new profile */ }
+  try {
+    const data = await employersAPI.getProfile();
+    profile = data.profile || {};
+  } catch (e) { /* new profile */ }
 
-    container.innerHTML = `
+  container.innerHTML = `
     <div class="container" style="max-width:800px;padding:var(--space-8) var(--space-6);">
       <a href="#/dashboard" class="btn btn-ghost btn-sm" style="margin-bottom:var(--space-6);">← Dashboard'a Dön</a>
 
@@ -212,30 +234,30 @@ async function renderEmployerProfile(container) {
     </div>
   `;
 
-    document.getElementById('employerForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const btn = document.getElementById('saveEmpProfileBtn');
-        btn.disabled = true;
-        btn.textContent = 'Kaydediliyor...';
+  document.getElementById('employerForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('saveEmpProfileBtn');
+    btn.disabled = true;
+    btn.textContent = 'Kaydediliyor...';
 
-        try {
-            await employersAPI.updateProfile({
-                companyName: document.getElementById('epCompanyName').value,
-                industry: document.getElementById('epIndustry').value,
-                companySize: document.getElementById('epSize').value,
-                city: document.getElementById('epCity').value,
-                website: document.getElementById('epWebsite').value,
-                description: document.getElementById('epDescription').value,
-                logoUrl: document.getElementById('epLogoUrl').value
-            });
+    try {
+      await employersAPI.updateProfile({
+        companyName: document.getElementById('epCompanyName').value,
+        industry: document.getElementById('epIndustry').value,
+        companySize: document.getElementById('epSize').value,
+        city: document.getElementById('epCity').value,
+        website: document.getElementById('epWebsite').value,
+        description: document.getElementById('epDescription').value,
+        logoUrl: document.getElementById('epLogoUrl').value
+      });
 
-            window.showToast('Profil başarıyla güncellendi! ✅', 'success');
-            btn.disabled = false;
-            btn.textContent = '💾 Profili Kaydet';
-        } catch (error) {
-            window.showToast(error.message, 'error');
-            btn.disabled = false;
-            btn.textContent = '💾 Profili Kaydet';
-        }
-    });
+      window.showToast('Profil başarıyla güncellendi! ✅', 'success');
+      btn.disabled = false;
+      btn.textContent = '💾 Profili Kaydet';
+    } catch (error) {
+      window.showToast(error.message, 'error');
+      btn.disabled = false;
+      btn.textContent = '💾 Profili Kaydet';
+    }
+  });
 }

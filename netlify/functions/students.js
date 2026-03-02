@@ -12,7 +12,7 @@ export async function handler(event) {
     const body = event.body ? JSON.parse(event.body) : {};
 
     try {
-        // GET /api/students/profile - Kendi profilini getir
+        // GET /api/students/profile - Kendi profilini getir (languages + references dahil)
         if (event.httpMethod === 'GET' && path === '/profile') {
             if (!authUser) return jsonResponse(401, { error: 'Oturum gerekli' });
 
@@ -26,10 +26,19 @@ export async function handler(event) {
 
             const profile = profiles[0];
             const skills = await sql`
-        SELECT * FROM student_skills WHERE student_id = ${profile.id} ORDER BY skill_name
+        SELECT ss.*, sr.reference_name, sr.institution as ref_institution
+        FROM student_skills ss
+        LEFT JOIN student_references sr ON ss.reference_id = sr.id
+        WHERE ss.student_id = ${profile.id} ORDER BY ss.skill_name
+      `;
+            const languages = await sql`
+        SELECT * FROM student_languages WHERE student_id = ${profile.id} ORDER BY exam_type
+      `;
+            const references = await sql`
+        SELECT * FROM student_references WHERE student_id = ${profile.id} ORDER BY created_at DESC
       `;
 
-            return jsonResponse(200, { profile: { ...profile, skills } });
+            return jsonResponse(200, { profile: { ...profile, skills, languages, references } });
         }
 
         // GET /api/students/:id - Belirli öğrenci profili (işverenler için)
@@ -45,10 +54,19 @@ export async function handler(event) {
 
             const profile = profiles[0];
             const skills = await sql`
-        SELECT * FROM student_skills WHERE student_id = ${profile.id} ORDER BY skill_name
+        SELECT ss.*, sr.reference_name, sr.institution as ref_institution
+        FROM student_skills ss
+        LEFT JOIN student_references sr ON ss.reference_id = sr.id
+        WHERE ss.student_id = ${profile.id} ORDER BY ss.skill_name
+      `;
+            const languages = await sql`
+        SELECT * FROM student_languages WHERE student_id = ${profile.id} ORDER BY exam_type
+      `;
+            const references = await sql`
+        SELECT * FROM student_references WHERE student_id = ${profile.id} ORDER BY created_at DESC
       `;
 
-            return jsonResponse(200, { profile: { ...profile, skills } });
+            return jsonResponse(200, { profile: { ...profile, skills, languages, references } });
         }
 
         // PUT /api/students/profile - Profil güncelle
@@ -84,22 +102,31 @@ export async function handler(event) {
             return jsonResponse(200, { profile: result[0] });
         }
 
+        // ─── SKILLS (Sertifika/Referans doğrulamalı) ───
+
         // POST /api/students/skills - Beceri ekle
         if (event.httpMethod === 'POST' && path === '/skills') {
             if (!authUser) return jsonResponse(401, { error: 'Oturum gerekli' });
 
-            const { skillName, proficiencyLevel } = body;
+            const { skillName, proficiencyLevel, certificateUrl, verificationType, referenceId } = body;
             if (!skillName) return jsonResponse(400, { error: 'Beceri adı zorunludur' });
 
             const profiles = await sql`SELECT id FROM student_profiles WHERE user_id = ${authUser.id}`;
             if (profiles.length === 0) return jsonResponse(404, { error: 'Profil bulunamadı' });
 
             const level = Math.min(5, Math.max(1, proficiencyLevel || 3));
+            const vType = verificationType || 'none';
+            const certUrl = certificateUrl || null;
+            const refId = referenceId || null;
 
             const result = await sql`
-        INSERT INTO student_skills (student_id, skill_name, proficiency_level)
-        VALUES (${profiles[0].id}, ${skillName}, ${level})
-        ON CONFLICT (student_id, skill_name) DO UPDATE SET proficiency_level = ${level}
+        INSERT INTO student_skills (student_id, skill_name, proficiency_level, certificate_url, verification_type, reference_id)
+        VALUES (${profiles[0].id}, ${skillName}, ${level}, ${certUrl}, ${vType}, ${refId})
+        ON CONFLICT (student_id, skill_name) DO UPDATE SET
+          proficiency_level = ${level},
+          certificate_url = ${certUrl},
+          verification_type = ${vType},
+          reference_id = ${refId}
         RETURNING *
       `;
 
@@ -116,6 +143,81 @@ export async function handler(event) {
 
             await sql`DELETE FROM student_skills WHERE id = ${skillId} AND student_id = ${profiles[0].id}`;
             return jsonResponse(200, { message: 'Beceri silindi' });
+        }
+
+        // ─── LANGUAGES (Dil Becerileri) ───
+
+        // POST /api/students/languages - Dil skoru ekle
+        if (event.httpMethod === 'POST' && path === '/languages') {
+            if (!authUser) return jsonResponse(401, { error: 'Oturum gerekli' });
+
+            const { examType, score, certificateUrl } = body;
+            if (!examType || !score) return jsonResponse(400, { error: 'Sınav türü ve skor zorunludur' });
+            if (!certificateUrl) return jsonResponse(400, { error: 'Sonuç belgesi (PDF) yüklenmesi zorunludur' });
+
+            const validExams = ['TOEFL', 'IELTS', 'YDS', 'YÖKDİL'];
+            if (!validExams.includes(examType)) return jsonResponse(400, { error: 'Geçersiz sınav türü' });
+
+            const profiles = await sql`SELECT id FROM student_profiles WHERE user_id = ${authUser.id}`;
+            if (profiles.length === 0) return jsonResponse(404, { error: 'Profil bulunamadı' });
+
+            const result = await sql`
+        INSERT INTO student_languages (student_id, exam_type, score, certificate_url)
+        VALUES (${profiles[0].id}, ${examType}, ${score}, ${certificateUrl})
+        ON CONFLICT (student_id, exam_type) DO UPDATE SET
+          score = ${score},
+          certificate_url = ${certificateUrl}
+        RETURNING *
+      `;
+
+            return jsonResponse(201, { language: result[0] });
+        }
+
+        // DELETE /api/students/languages/:id - Dil skoru sil
+        if (event.httpMethod === 'DELETE' && path.match(/^\/languages\/\d+$/)) {
+            if (!authUser) return jsonResponse(401, { error: 'Oturum gerekli' });
+
+            const langId = parseInt(path.split('/').pop());
+            const profiles = await sql`SELECT id FROM student_profiles WHERE user_id = ${authUser.id}`;
+            if (profiles.length === 0) return jsonResponse(404, { error: 'Profil bulunamadı' });
+
+            await sql`DELETE FROM student_languages WHERE id = ${langId} AND student_id = ${profiles[0].id}`;
+            return jsonResponse(200, { message: 'Dil skoru silindi' });
+        }
+
+        // ─── REFERENCES (Referans Mektupları) ───
+
+        // POST /api/students/references - Referans ekle
+        if (event.httpMethod === 'POST' && path === '/references') {
+            if (!authUser) return jsonResponse(401, { error: 'Oturum gerekli' });
+
+            const { referenceName, referenceTitle, institution, letterUrl, context } = body;
+            if (!referenceName) return jsonResponse(400, { error: 'Referans veren kişi adı zorunludur' });
+            if (!letterUrl) return jsonResponse(400, { error: 'Referans mektubu (PDF) yüklenmesi zorunludur' });
+
+            const profiles = await sql`SELECT id FROM student_profiles WHERE user_id = ${authUser.id}`;
+            if (profiles.length === 0) return jsonResponse(404, { error: 'Profil bulunamadı' });
+
+            const ctx = context || 'academic';
+            const result = await sql`
+        INSERT INTO student_references (student_id, reference_name, reference_title, institution, letter_url, context)
+        VALUES (${profiles[0].id}, ${referenceName}, ${referenceTitle || null}, ${institution || null}, ${letterUrl}, ${ctx})
+        RETURNING *
+      `;
+
+            return jsonResponse(201, { reference: result[0] });
+        }
+
+        // DELETE /api/students/references/:id - Referans sil
+        if (event.httpMethod === 'DELETE' && path.match(/^\/references\/\d+$/)) {
+            if (!authUser) return jsonResponse(401, { error: 'Oturum gerekli' });
+
+            const refId = parseInt(path.split('/').pop());
+            const profiles = await sql`SELECT id FROM student_profiles WHERE user_id = ${authUser.id}`;
+            if (profiles.length === 0) return jsonResponse(404, { error: 'Profil bulunamadı' });
+
+            await sql`DELETE FROM student_references WHERE id = ${refId} AND student_id = ${profiles[0].id}`;
+            return jsonResponse(200, { message: 'Referans silindi' });
         }
 
         return jsonResponse(404, { error: 'Endpoint bulunamadı' });

@@ -112,3 +112,57 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 CREATE INDEX idx_notifications_user ON notifications(user_id);
 CREATE INDEX idx_notifications_read ON notifications(user_id, is_read);
+
+-- Konuşmalar (1-1 mesajlaşma)
+CREATE TABLE IF NOT EXISTS conversations (
+  id SERIAL PRIMARY KEY,
+  user1_id INT REFERENCES users(id) ON DELETE CASCADE,
+  user2_id INT REFERENCES users(id) ON DELETE CASCADE,
+  last_message_at TIMESTAMP DEFAULT NOW(),
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(user1_id, user2_id)
+);
+CREATE INDEX idx_conversations_user1 ON conversations(user1_id);
+CREATE INDEX idx_conversations_user2 ON conversations(user2_id);
+
+-- Mesajlar
+CREATE TABLE IF NOT EXISTS messages (
+  id SERIAL PRIMARY KEY,
+  conversation_id INT REFERENCES conversations(id) ON DELETE CASCADE,
+  sender_id INT REFERENCES users(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  is_read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX idx_messages_conversation ON messages(conversation_id);
+CREATE INDEX idx_messages_sender ON messages(sender_id);
+
+-- Dil Becerileri (TOEFL, IELTS, YDS, YÖKDİL)
+CREATE TABLE IF NOT EXISTS student_languages (
+  id SERIAL PRIMARY KEY,
+  student_id INT REFERENCES student_profiles(id) ON DELETE CASCADE,
+  exam_type VARCHAR(20) NOT NULL CHECK (exam_type IN ('TOEFL', 'IELTS', 'YDS', 'YÖKDİL')),
+  score VARCHAR(10) NOT NULL,
+  certificate_url TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(student_id, exam_type)
+);
+CREATE INDEX idx_student_languages_student ON student_languages(student_id);
+
+-- Referans Mektupları
+CREATE TABLE IF NOT EXISTS student_references (
+  id SERIAL PRIMARY KEY,
+  student_id INT REFERENCES student_profiles(id) ON DELETE CASCADE,
+  reference_name VARCHAR(255) NOT NULL,
+  reference_title VARCHAR(255),
+  institution VARCHAR(255),
+  letter_url TEXT NOT NULL,
+  context VARCHAR(50) CHECK (context IN ('academic', 'work', 'skill')),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX idx_student_references_student ON student_references(student_id);
+
+-- student_skills genişletme
+ALTER TABLE student_skills ADD COLUMN IF NOT EXISTS certificate_url TEXT;
+ALTER TABLE student_skills ADD COLUMN IF NOT EXISTS verification_type VARCHAR(20);
+ALTER TABLE student_skills ADD COLUMN IF NOT EXISTS reference_id INT REFERENCES student_references(id);

@@ -1,5 +1,5 @@
 // ── Employer Dashboard ──
-import { employersAPI, jobsAPI, matchAPI, applicationsAPI, notificationsAPI, getUser } from '../api.js';
+import { employersAPI, jobsAPI, matchAPI, applicationsAPI, notificationsAPI, searchAPI, getUser } from '../api.js';
 
 export async function renderEmployerDashboard(container) {
   const user = getUser();
@@ -24,7 +24,9 @@ export async function renderEmployerDashboard(container) {
               <li><a href="javascript:void(0)" class="active" data-tab="overview">📊 Genel Bakış</a></li>
               <li><a href="javascript:void(0)" data-tab="jobs">📋 İlanlarım</a></li>
               <li><a href="javascript:void(0)" data-tab="create">➕ Yeni İlan</a></li>
+              <li><a href="javascript:void(0)" data-tab="search">🔍 Aday Ara</a></li>
               <li><a href="javascript:void(0)" data-tab="notifications">🔔 Bildirimler</a></li>
+              <li><a href="#/messages">💬 Mesajlar</a></li>
             </ul>
           </div>
         </aside>
@@ -57,6 +59,7 @@ async function loadEmpTab(tab) {
     case 'overview': await renderEmpOverview(content); break;
     case 'jobs': await renderEmpJobs(content); break;
     case 'create': renderCreateJob(content); break;
+    case 'search': renderCandidateSearch(content); break;
     case 'notifications': await renderEmpNotifications(content); break;
   }
 }
@@ -369,6 +372,318 @@ function renderCreateJob(content) {
   });
 }
 
+// ── CANDIDATE SEARCH TAB ──
+function renderCandidateSearch(content) {
+  content.innerHTML = `
+    <div class="dashboard-header">
+      <h1>🔍 Aday Ara</h1>
+    </div>
+
+    <div class="card" style="margin-bottom:var(--space-6);">
+      <h3 style="margin-bottom:var(--space-4);">Filtreler</h3>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">⚡ Beceriler</label>
+          <div style="display:flex;gap:var(--space-2);margin-bottom:var(--space-2);">
+            <input type="text" class="form-input" id="filterSkillInput" placeholder="Beceri adı ekle...">
+            <button class="btn btn-secondary btn-sm" id="addFilterSkillBtn">+</button>
+          </div>
+          <div id="filterSkillTags" style="display:flex;flex-wrap:wrap;gap:var(--space-1);"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">🌍 Dil Filtresi</label>
+          <div style="display:flex;gap:var(--space-2);margin-bottom:var(--space-2);">
+            <select class="form-select" id="filterLangExam" style="flex:1;">
+              <option value="">Sınav seç...</option>
+              <option value="TOEFL">TOEFL</option>
+              <option value="IELTS">IELTS</option>
+              <option value="YDS">YDS</option>
+              <option value="YÖKDİL">YÖKDİL</option>
+            </select>
+            <input type="number" class="form-input" id="filterLangMinScore" placeholder="Min skor" style="width:100px;">
+            <button class="btn btn-secondary btn-sm" id="addFilterLangBtn">+</button>
+          </div>
+          <div id="filterLangTags" style="display:flex;flex-wrap:wrap;gap:var(--space-1);"></div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">📍 Şehir</label>
+          <input type="text" class="form-input" id="filterCity" placeholder="Örn: İstanbul">
+        </div>
+        <div class="form-group">
+          <label class="form-label">🏫 Üniversite</label>
+          <input type="text" class="form-input" id="filterUniversity" placeholder="Örn: Boğaziçi">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">📚 Bölüm</label>
+          <input type="text" class="form-input" id="filterDepartment" placeholder="Örn: Bilgisayar Mühendisliği">
+        </div>
+        <div class="form-group">
+          <label class="form-label">📊 Minimum GPA</label>
+          <input type="number" class="form-input" id="filterMinGpa" placeholder="Örn: 3.0" step="0.01" min="0" max="4">
+        </div>
+      </div>
+
+      <button class="btn btn-primary w-full" id="searchCandidatesBtn">🔍 Aday Ara</button>
+    </div>
+
+    <div id="searchResults">
+      <div class="empty-state">
+        <div class="empty-state-icon">🔍</div>
+        <h3>Aday Arama</h3>
+        <p>Filtreleri kullanarak istediğiniz özelliklerde adayları bulun</p>
+      </div>
+    </div>
+  `;
+
+  let filterSkills = [];
+  let filterLangs = [];
+
+  // Add skill filter
+  document.getElementById('addFilterSkillBtn').addEventListener('click', () => {
+    const input = document.getElementById('filterSkillInput');
+    const skill = input.value.trim();
+    if (skill && !filterSkills.includes(skill)) {
+      filterSkills.push(skill);
+      renderFilterTags();
+      input.value = '';
+    }
+  });
+
+  // Add language filter
+  document.getElementById('addFilterLangBtn').addEventListener('click', () => {
+    const exam = document.getElementById('filterLangExam').value;
+    const minScore = document.getElementById('filterLangMinScore').value;
+    if (exam) {
+      filterLangs.push({ exam, minScore: minScore || 0 });
+      renderFilterTags();
+      document.getElementById('filterLangExam').value = '';
+      document.getElementById('filterLangMinScore').value = '';
+    }
+  });
+
+  function renderFilterTags() {
+    document.getElementById('filterSkillTags').innerHTML = filterSkills.map((s, i) =>
+      `<span class="skill-tag">${s} <button class="remove-btn" data-type="skill" data-idx="${i}">✕</button></span>`
+    ).join('');
+
+    document.getElementById('filterLangTags').innerHTML = filterLangs.map((l, i) =>
+      `<span class="skill-tag">${l.exam} ≥${l.minScore} <button class="remove-btn" data-type="lang" data-idx="${i}">✕</button></span>`
+    ).join('');
+
+    // Remove handlers
+    document.querySelectorAll('#filterSkillTags .remove-btn, #filterLangTags .remove-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const type = btn.dataset.type;
+        const idx = parseInt(btn.dataset.idx);
+        if (type === 'skill') filterSkills.splice(idx, 1);
+        else filterLangs.splice(idx, 1);
+        renderFilterTags();
+      });
+    });
+  }
+
+  // Search
+  document.getElementById('searchCandidatesBtn').addEventListener('click', async () => {
+    const resultsDiv = document.getElementById('searchResults');
+    resultsDiv.innerHTML = '<div style="display:flex;justify-content:center;padding:2rem;"><div class="spinner"></div></div>';
+
+    const filters = {
+      skills: filterSkills.length > 0 ? filterSkills : undefined,
+      languages: filterLangs.length > 0 ? filterLangs : undefined,
+      city: document.getElementById('filterCity').value.trim() || undefined,
+      university: document.getElementById('filterUniversity').value.trim() || undefined,
+      department: document.getElementById('filterDepartment').value.trim() || undefined,
+      minGpa: document.getElementById('filterMinGpa').value || undefined
+    };
+
+    try {
+      const data = await searchAPI.searchCandidates(filters);
+      const candidates = data.candidates || [];
+
+      if (candidates.length === 0) {
+        resultsDiv.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">😕</div>
+            <h3>Aday Bulunamadı</h3>
+            <p>Filtrelerinizi genişleterek tekrar deneyin</p>
+          </div>
+        `;
+        return;
+      }
+
+      resultsDiv.innerHTML = `
+        <div class="dashboard-header" style="margin-bottom:var(--space-4);">
+          <h3>${candidates.length} aday bulundu</h3>
+        </div>
+        ${candidates.map(c => `
+          <div class="card candidate-card" style="margin-bottom:var(--space-4);cursor:pointer;" data-student-id="${c.id}">
+            <div style="display:flex;align-items:flex-start;gap:var(--space-4);">
+              <div class="profile-avatar" style="width:56px;height:56px;font-size:var(--font-xl);flex-shrink:0;">
+                ${(c.full_name || 'A')[0]}
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-2);flex-wrap:wrap;">
+                  <span style="font-weight:700;font-size:var(--font-lg);">${c.full_name}</span>
+                  <span class="badge badge-primary">%${c.profileCompletion} Profil</span>
+                </div>
+                <div class="text-sm text-muted" style="margin-bottom:var(--space-2);">
+                  ${c.university || ''} ${c.department ? '• ' + c.department : ''} ${c.city ? '📍 ' + c.city : ''} ${c.gpa ? '• GPA: ' + c.gpa : ''}
+                </div>
+
+                <!-- Skills -->
+                ${c.skills && c.skills.length > 0 ? `
+                  <div style="margin-bottom:var(--space-2);">
+                    <span class="text-xs text-muted">Beceriler: </span>
+                    ${c.skills.map(s => `
+                      <span class="skill-tag ${c.matchedSkills?.includes(s.skill_name) ? 'matched' : ''}" style="font-size:0.7rem;">
+                        ${s.skill_name}
+                        ${s.verification_type === 'certificate' ? ' 📜' : s.verification_type === 'reference' ? ' 📎' : ''}
+                      </span>
+                    `).join(' ')}
+                  </div>
+                ` : ''}
+
+                <!-- Languages -->
+                ${c.languages && c.languages.length > 0 ? `
+                  <div style="margin-bottom:var(--space-2);">
+                    <span class="text-xs text-muted">Diller: </span>
+                    ${c.languages.map(l => `<span class="badge badge-accent" style="font-size:0.65rem;">${l.exam_type}: ${l.score}</span>`).join(' ')}
+                  </div>
+                ` : ''}
+
+                <!-- References -->
+                ${c.references && c.references.length > 0 ? `
+                  <div>
+                    <span class="text-xs text-muted">📎 ${c.references.length} referans mektubu</span>
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+
+            <!-- Detay buttonu -->
+            <div style="display:flex;gap:var(--space-2);justify-content:flex-end;margin-top:var(--space-3);border-top:1px solid var(--border-color);padding-top:var(--space-3);">
+              ${c.cv_url ? `<a href="${c.cv_url}" target="_blank" class="btn btn-ghost btn-sm">📄 CV</a>` : ''}
+              <button class="btn btn-secondary btn-sm view-candidate-detail" data-id="${c.id}">👤 Profil Detayı</button>
+            </div>
+          </div>
+        `).join('')}
+      `;
+
+      // View candidate detail
+      resultsDiv.querySelectorAll('.view-candidate-detail').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          showCandidateDetail(btn.dataset.id, candidates);
+        });
+      });
+    } catch (error) {
+      resultsDiv.innerHTML = `<p class="text-muted" style="padding:var(--space-4);">⚠️ ${error.message}</p>`;
+    }
+  });
+}
+
+// ── Candidate Detail Modal (referanslar dahil) ──
+function showCandidateDetail(studentId, candidates) {
+  const c = candidates.find(x => String(x.id) === String(studentId));
+  if (!c) return;
+
+  const contextLabels = {
+    'academic': '🎓 Akademik',
+    'work': '💼 İş',
+    'skill': '⚡ Beceri'
+  };
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay active';
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:750px;max-height:85vh;overflow-y:auto;">
+      <div class="modal-header">
+        <h2>👤 ${c.full_name}</h2>
+        <button class="modal-close" id="closeCandidateDetail">✕</button>
+      </div>
+
+      <div style="padding:var(--space-4) var(--space-6);">
+        <!-- Temel Bilgi -->
+        <div style="margin-bottom:var(--space-5);">
+          <div class="text-sm text-muted" style="margin-bottom:var(--space-2);">
+            ${c.university || ''} ${c.department ? '• ' + c.department : ''} ${c.city ? '📍 ' + c.city : ''}
+          </div>
+          ${c.gpa ? `<div class="text-sm">📊 GPA: <strong>${c.gpa}</strong></div>` : ''}
+          ${c.bio ? `<div class="text-sm" style="margin-top:var(--space-2);">${c.bio}</div>` : ''}
+        </div>
+
+        <!-- Beceriler -->
+        ${c.skills && c.skills.length > 0 ? `
+          <div style="margin-bottom:var(--space-5);">
+            <h3 style="margin-bottom:var(--space-3);">⚡ Beceriler</h3>
+            ${c.skills.map(s => `
+              <div style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2) 0;border-bottom:1px solid var(--border-color);">
+                <span style="font-weight:600;flex:1;">${s.skill_name}</span>
+                <div class="skill-level">
+                  ${Array.from({ length: 5 }, (_, i) => `<span class="skill-level-dot ${i < s.proficiency_level ? 'active' : ''}"></span>`).join('')}
+                </div>
+                ${s.verification_type === 'certificate' ? '<span class="badge badge-success" style="font-size:0.6rem;">📜 Sertifikalı</span>' : ''}
+                ${s.verification_type === 'reference' ? `<span class="badge badge-accent" style="font-size:0.6rem;">📎 Referanslı</span>` : ''}
+                ${s.certificate_url ? `<a href="${s.certificate_url}" target="_blank" class="btn btn-ghost btn-sm" style="font-size:0.65rem;">PDF</a>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+
+        <!-- Dil Becerileri -->
+        ${c.languages && c.languages.length > 0 ? `
+          <div style="margin-bottom:var(--space-5);">
+            <h3 style="margin-bottom:var(--space-3);">🌍 Dil Becerileri</h3>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:var(--space-3);">
+              ${c.languages.map(l => `
+                <div class="card" style="text-align:center;padding:var(--space-3);">
+                  <div style="font-weight:700;">${l.exam_type}</div>
+                  <div style="font-size:var(--font-xl);font-weight:800;color:var(--primary);">${l.score}</div>
+                  ${l.certificate_url ? `<a href="${l.certificate_url}" target="_blank" class="btn btn-ghost btn-sm" style="font-size:0.65rem;">📄 Belge</a>` : ''}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- Referans Mektupları -->
+        ${c.references && c.references.length > 0 ? `
+          <div style="margin-bottom:var(--space-5);">
+            <h3 style="margin-bottom:var(--space-3);">📎 Referans Mektupları</h3>
+            ${c.references.map(r => `
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-3) 0;border-bottom:1px solid var(--border-color);">
+                <div>
+                  <div style="font-weight:600;">${r.reference_name}</div>
+                  <div class="text-xs text-muted">${r.reference_title || ''} ${r.institution ? '• ' + r.institution : ''}</div>
+                  <span class="badge badge-primary" style="font-size:0.6rem;margin-top:2px;">${contextLabels[r.context] || '📎'}</span>
+                </div>
+                <a href="${r.letter_url}" target="_blank" class="btn btn-secondary btn-sm">📄 Mektubu Oku</a>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+
+        <!-- Linkler -->
+        <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;">
+          ${c.cv_url ? `<a href="${c.cv_url}" target="_blank" class="btn btn-primary btn-sm">📄 CV</a>` : ''}
+          ${c.linkedin_url ? `<a href="${c.linkedin_url}" target="_blank" class="btn btn-ghost btn-sm">🔗 LinkedIn</a>` : ''}
+          ${c.github_url ? `<a href="${c.github_url}" target="_blank" class="btn btn-ghost btn-sm">🐙 GitHub</a>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#closeCandidateDetail').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+}
+
 async function showCandidates(jobId) {
   // Create modal
   const overlay = document.createElement('div');
@@ -405,7 +720,7 @@ async function showCandidates(jobId) {
           ${(c.full_name || 'A')[0]}
         </div>
         <div style="flex:1;min-width:0;">
-          <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-1);">
+          <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-1);flex-wrap:wrap;">
             <span style="font-weight:700;">${c.full_name}</span>
             <span class="badge ${c.matchScore >= 70 ? 'badge-success' : c.matchScore >= 40 ? 'badge-warning' : 'badge-error'}">%${c.matchScore}</span>
             ${c.hasApplied ? '<span class="badge badge-primary">Başvurdu</span>' : ''}
@@ -413,10 +728,16 @@ async function showCandidates(jobId) {
           <div class="text-sm text-muted" style="margin-bottom:var(--space-2);">
             ${c.university || ''} ${c.department ? '• ' + c.department : ''} ${c.city ? '📍 ' + c.city : ''}
           </div>
-          <div style="display:flex;flex-wrap:wrap;gap:var(--space-1);">
+          <div style="display:flex;flex-wrap:wrap;gap:var(--space-1);margin-bottom:var(--space-2);">
             ${(c.matchedSkills || []).map(s => `<span class="skill-tag matched" style="font-size:0.65rem;">${s}</span>`).join('')}
             ${(c.missingSkills || []).map(s => `<span class="skill-tag missing" style="font-size:0.65rem;">${s}</span>`).join('')}
           </div>
+          ${c.languages && c.languages.length > 0 ? `
+            <div style="margin-bottom:var(--space-1);">
+              ${c.languages.map(l => `<span class="badge badge-accent" style="font-size:0.6rem;">${l.exam_type}: ${l.score}</span>`).join(' ')}
+            </div>
+          ` : ''}
+          ${c.references && c.references.length > 0 ? `<div class="text-xs text-muted">📎 ${c.references.length} referans</div>` : ''}
           ${c.cv_url ? `<a href="${c.cv_url}" target="_blank" class="btn btn-ghost btn-sm" style="margin-top:var(--space-2);">📄 CV</a>` : ''}
         </div>
       </div>

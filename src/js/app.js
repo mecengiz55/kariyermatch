@@ -1,5 +1,5 @@
 // ── KariyerMatch - SPA Router & App Controller ──
-import { getUser, getToken, removeToken, removeUser, notificationsAPI } from './api.js';
+import { getUser, getToken, removeToken, removeUser, notificationsAPI, messagesAPI } from './api.js';
 import { renderHome } from './pages/home.js';
 import { renderLogin, renderRegister } from './pages/auth.js';
 import { renderJobs } from './pages/jobs.js';
@@ -8,6 +8,7 @@ import { renderStudentDashboard } from './pages/dashboard-student.js';
 import { renderEmployerDashboard } from './pages/dashboard-employer.js';
 import { renderProfile } from './pages/profile.js';
 import { renderAdmin } from './pages/admin.js';
+import { renderMessages, cleanupMessages } from './pages/messages.js';
 
 const app = document.getElementById('app');
 const navLinks = document.getElementById('navLinks');
@@ -47,6 +48,24 @@ function updateNotifBadge(count) {
     } else {
         badge.classList.remove('visible');
     }
+}
+
+function updateMsgBadge(count) {
+    const badge = document.getElementById('msgBadge');
+    if (!badge) return;
+    if (count > 0) {
+        badge.textContent = count > 99 ? '99+' : count;
+        badge.classList.add('visible');
+    } else {
+        badge.classList.remove('visible');
+    }
+}
+
+async function fetchMsgUnreadCount() {
+    try {
+        const data = await messagesAPI.unreadCount();
+        updateMsgBadge(data.count);
+    } catch (e) { /* ignore */ }
 }
 
 async function toggleNotifDropdown() {
@@ -208,8 +227,13 @@ function updateNav() {
       <li><a href="#/" data-page="home" ${currentHash === '#/' || currentHash === '' ? 'class="active"' : ''}>Ana Sayfa</a></li>
       <li><a href="#/jobs" data-page="jobs" ${currentHash.startsWith('#/jobs') ? 'class="active"' : ''}>İlanlar</a></li>
       <li><a href="${dashLink}" data-page="dashboard" ${currentHash.startsWith('#/dashboard') || currentHash.startsWith('#/admin') ? 'class="active"' : ''}>${dashLabel}</a></li>
+      <li><a href="#/messages" data-page="messages" ${currentHash.startsWith('#/messages') ? 'class="active"' : ''}>💬 Mesajlar</a></li>
     `;
         navActions.innerHTML = `
+      <a href="#/messages" class="notification-bell-wrapper" id="msgBellWrapper" aria-label="Mesajlar" style="text-decoration:none;">
+        <span class="notification-bell">💬</span>
+        <span class="notification-badge" id="msgBadge"></span>
+      </a>
       <div class="notification-bell-wrapper" id="notifBellWrapper">
         <button class="notification-bell" id="notifBellBtn" aria-label="Bildirimler">
           🔔
@@ -225,6 +249,7 @@ function updateNav() {
             toggleNotifDropdown();
         });
         startNotifPolling();
+        fetchMsgUnreadCount();
     } else {
         stopNotifPolling();
         navLinks.innerHTML = `
@@ -295,6 +320,13 @@ async function router() {
                 return;
             }
             await renderProfile(app);
+        } else if (path === '/messages') {
+            const user = getUser();
+            if (!user) {
+                window.location.hash = '#/login';
+                return;
+            }
+            await renderMessages(app);
         } else if (path === '/admin') {
             const user = getUser();
             if (!user || user.role !== 'admin') {

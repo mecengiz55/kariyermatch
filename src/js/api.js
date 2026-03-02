@@ -58,6 +58,35 @@ async function apiRequest(endpoint, options = {}) {
     }
 }
 
+// ── PDF Upload Helper ──
+async function uploadFile(file) {
+    return new Promise((resolve, reject) => {
+        if (!file) return reject(new Error('Dosya seçilmedi'));
+        if (file.type !== 'application/pdf') return reject(new Error('Sadece PDF dosyaları kabul edilir'));
+        if (file.size > 5 * 1024 * 1024) return reject(new Error('Dosya boyutu 5MB\'dan büyük olamaz'));
+
+        const reader = new FileReader();
+        reader.onload = async () => {
+            const base64 = reader.result.split(',')[1]; // data:...;base64, kısmını kaldır
+            try {
+                const result = await apiRequest('/upload', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        fileData: base64,
+                        fileName: file.name,
+                        mimeType: file.type
+                    })
+                });
+                resolve(result);
+            } catch (error) {
+                reject(error);
+            }
+        };
+        reader.onerror = () => reject(new Error('Dosya okunamadı'));
+        reader.readAsDataURL(file);
+    });
+}
+
 // Auth API
 export const authAPI = {
     register: (data) => apiRequest('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
@@ -70,8 +99,15 @@ export const studentsAPI = {
     getProfile: () => apiRequest('/students/profile'),
     getStudent: (id) => apiRequest(`/students/${id}`),
     updateProfile: (data) => apiRequest('/students/profile', { method: 'PUT', body: JSON.stringify(data) }),
+    // Skills
     addSkill: (data) => apiRequest('/students/skills', { method: 'POST', body: JSON.stringify(data) }),
     removeSkill: (id) => apiRequest(`/students/skills/${id}`, { method: 'DELETE' }),
+    // Languages
+    addLanguage: (data) => apiRequest('/students/languages', { method: 'POST', body: JSON.stringify(data) }),
+    removeLanguage: (id) => apiRequest(`/students/languages/${id}`, { method: 'DELETE' }),
+    // References
+    addReference: (data) => apiRequest('/students/references', { method: 'POST', body: JSON.stringify(data) }),
+    removeReference: (id) => apiRequest(`/students/references/${id}`, { method: 'DELETE' }),
 };
 
 // Employers API
@@ -133,4 +169,19 @@ export const notificationsAPI = {
     delete: (id) => apiRequest(`/notifications/${id}`, { method: 'DELETE' }),
 };
 
-export { getToken, setToken, removeToken, getUser, setUser, removeUser };
+// Messages API
+export const messagesAPI = {
+    conversations: () => apiRequest('/messages/conversations'),
+    getMessages: (convId) => apiRequest(`/messages/conversations/${convId}`),
+    startConversation: (receiverId) => apiRequest('/messages/conversations', { method: 'POST', body: JSON.stringify({ receiverId }) }),
+    send: (conversationId, content) => apiRequest('/messages/send', { method: 'POST', body: JSON.stringify({ conversationId, content }) }),
+    unreadCount: () => apiRequest('/messages/unread-count'),
+    markRead: (convId) => apiRequest(`/messages/conversations/${convId}/read`, { method: 'PUT' }),
+};
+
+// Search API
+export const searchAPI = {
+    searchCandidates: (filters) => apiRequest('/search/candidates', { method: 'POST', body: JSON.stringify(filters) }),
+};
+
+export { getToken, setToken, removeToken, getUser, setUser, removeUser, uploadFile };

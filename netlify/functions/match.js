@@ -22,6 +22,8 @@ export async function handler(event) {
 
             const studentProfile = profiles[0];
             const studentSkills = await sql`SELECT * FROM student_skills WHERE student_id = ${studentProfile.id}`;
+            const studentLanguages = await sql`SELECT * FROM student_languages WHERE student_id = ${studentProfile.id}`;
+            const studentReferences = await sql`SELECT * FROM student_references WHERE student_id = ${studentProfile.id}`;
 
             if (studentSkills.length === 0) {
                 return jsonResponse(200, { matches: [], message: 'Beceri ekleyerek eşleşmeleri görün' });
@@ -40,7 +42,7 @@ export async function handler(event) {
 
             for (const job of jobs) {
                 const requirements = await sql`SELECT * FROM job_requirements WHERE job_id = ${job.id}`;
-                const score = calculateMatchScore(studentSkills, requirements, studentProfile, job);
+                const score = calculateMatchScore(studentSkills, requirements, studentProfile, job, studentLanguages, studentReferences);
 
                 if (score > 0) {
                     matches.push({
@@ -85,7 +87,9 @@ export async function handler(event) {
 
             for (const student of students) {
                 const skills = await sql`SELECT * FROM student_skills WHERE student_id = ${student.id}`;
-                const score = calculateMatchScore(skills, requirements, student, jobs[0]);
+                const languages = await sql`SELECT * FROM student_languages WHERE student_id = ${student.id}`;
+                const references = await sql`SELECT * FROM student_references WHERE student_id = ${student.id}`;
+                const score = calculateMatchScore(skills, requirements, student, jobs[0], languages, references);
 
                 if (score > 20) {
                     // Check application status
@@ -96,6 +100,8 @@ export async function handler(event) {
                     candidates.push({
                         ...student,
                         skills,
+                        languages,
+                        references,
                         matchScore: score,
                         matchedSkills: getMatchedSkills(skills, requirements),
                         missingSkills: getMissingSkills(skills, requirements),
@@ -117,7 +123,7 @@ export async function handler(event) {
     }
 }
 
-function calculateMatchScore(studentSkills, jobRequirements, studentProfile, job) {
+function calculateMatchScore(studentSkills, jobRequirements, studentProfile, job, languages = [], references = []) {
     if (!jobRequirements || jobRequirements.length === 0) return 50;
 
     let totalScore = 0;
@@ -138,33 +144,52 @@ function calculateMatchScore(studentSkills, jobRequirements, studentProfile, job
         }
     }
 
-    let baseScore = totalWeight > 0 ? (totalScore / totalWeight) * 80 : 0;
+    let baseScore = totalWeight > 0 ? (totalScore / totalWeight) * 70 : 0;
 
-    // Bonus puanlar
-    // Şehir eşleşmesi
+    // ── Bonus Puanlar ──
+
+    // Şehir eşleşmesi (+5)
     if (studentProfile.city && job.location &&
         studentProfile.city.toLowerCase().includes(job.location.toLowerCase().split(',')[0])) {
         baseScore += 5;
     }
 
-    // Remote iş ise bonus
+    // Remote iş ise bonus (+2)
     if (job.is_remote) {
-        baseScore += 3;
+        baseScore += 2;
     }
 
-    // GPA bonusu
+    // GPA bonusu (+3)
     if (studentProfile.gpa && parseFloat(studentProfile.gpa) >= 3.0) {
-        baseScore += 5;
-    }
-
-    // CV yüklenmişse bonus
-    if (studentProfile.cv_url) {
         baseScore += 3;
     }
 
-    // LinkedIn/GitHub varsa bonus
-    if (studentProfile.linkedin_url) baseScore += 2;
-    if (studentProfile.github_url) baseScore += 2;
+    // CV yüklenmişse bonus (+2)
+    if (studentProfile.cv_url) {
+        baseScore += 2;
+    }
+
+    // LinkedIn/GitHub varsa bonus (+1 each)
+    if (studentProfile.linkedin_url) baseScore += 1;
+    if (studentProfile.github_url) baseScore += 1;
+
+    // ── YENİ: Dil Becerisi Bonusu (+8 max) ──
+    if (languages && languages.length > 0) {
+        baseScore += Math.min(8, languages.length * 4);
+    }
+
+    // ── YENİ: Sertifikalı Beceri Bonusu (+5 max) ──
+    const certifiedSkills = studentSkills.filter(s =>
+        s.verification_type === 'certificate' || s.verification_type === 'reference'
+    );
+    if (certifiedSkills.length > 0) {
+        baseScore += Math.min(5, certifiedSkills.length * 2);
+    }
+
+    // ── YENİ: Referans Mektubu Bonusu (+3 max) ──
+    if (references && references.length > 0) {
+        baseScore += Math.min(3, references.length * 1.5);
+    }
 
     return Math.min(100, Math.round(baseScore));
 }
