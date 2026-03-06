@@ -13,66 +13,48 @@ const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/
 export async function analyzeDocument(fileUrl, expectedType, examType = null) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-        console.warn('GEMINI_API_KEY bulunamadı, analiz atlanıyor.');
-        return { valid: true, documentType: 'unknown', date: null, score: null, reason: 'API key yok' };
+        // API key yoksa reddet — yanlış yapılandırma belge kabul ettirmemeli
+        return { valid: false, documentType: 'unknown', date: null, score: null, reason: 'Belge doğrulama servisi yapılandırılmamış. Lütfen yönetici ile iletişime geçin.' };
     }
+
 
     // Belge tipine göre prompt oluştur
     const prompts = {
-        certificate: `Bu belgeyi analiz et. Bu bir sertifika veya diploma belgesi mi?
-Eğer sertifika/diploma ise:
-- valid: true
-- documentType: "certificate"
-- date: belgedeki tarih (YYYY-MM-DD formatında, yoksa null)
-- score: varsa not veya sonuç (string, yoksa null)
-- reason: kısa açıklama
+        certificate: `Analyze this document carefully. Is this a CERTIFICATE or DIPLOMA that proves completion of a course, training, or exam?
 
-Eğer sertifika değilse:
-- valid: false
-- documentType: gerçek belge tipi (örn: "receipt", "photo", "other")
-- date: null
-- score: null
-- reason: neden geçersiz olduğunu açıkla
+ACCEPTED documents (valid=true):
+- Course completion certificates
+- Training certificates  
+- Professional certification documents
+- Diplomas
+- Achievement awards
 
-Sadece JSON döndür, başka hiçbir şey yazma.`,
+REJECTED documents (valid=false):
+- Class notes, lecture notes, study materials
+- Homework or assignments
+- Reports or essays
+- Transcripts (grade reports)
+- Attendance sheets
+- Any document that is NOT explicitly issued as a certificate/diploma
 
-        language: `Bu belgeyi analiz et. Bu bir ${examType || 'dil sınavı'} sonuç belgesi mi?
-Geçerli sınavlar: TOEFL, IELTS, YDS, YÖKDİL
+Return ONLY this JSON, no other text:
+{"valid": true/false, "documentType": "certificate" or describe what it actually is, "date": "YYYY-MM-DD or null", "score": "grade if any or null", "reason": "brief explanation in Turkish"}`,
 
-Eğer dil sınavı sonuç belgesi ise:
-- valid: true
-- documentType: "language_certificate"
-- date: sınav tarihi (YYYY-MM-DD formatında, bulamazsan sadece yılı yaz örn: "2022-01-01", yoksa null)
-- score: sınav skoru (string, örn: "85", "6.5")
-- reason: hangi sınav olduğunu belirt
+        language: `Analyze this document. Is this an official ${examType || 'language exam'} result certificate (TOEFL, IELTS, YDS, or YÖKDİL)?
 
-Eğer dil sınavı belgesi değilse:
-- valid: false
-- documentType: gerçek belge tipi
-- date: null
-- score: null
-- reason: neden geçersiz olduğunu açıkla
+ACCEPTED (valid=true): Official score reports from TOEFL, IELTS, YDS, YÖKDİL exams only.
+REJECTED (valid=false): Class notes, course materials, homework, any non-official document, certificates from other exams.
 
-Sadece JSON döndür, başka hiçbir şey yazma.`,
+Return ONLY this JSON:
+{"valid": true/false, "documentType": "language_certificate" or actual type, "date": "YYYY-MM-DD or null", "score": "exam score or null", "reason": "brief explanation in Turkish"}`,
 
-        reference: `Bu belgeyi analiz et. Bu bir referans mektubu veya tavsiye mektubu mu?
-Referans mektubu özellikleri: bir kişiyi veya çalışmasını tavsiye eden resmi yazı, genellikle imzalı.
+        reference: `Analyze this document. Is this a REFERENCE LETTER or RECOMMENDATION LETTER written by someone to endorse a person's skills or character?
 
-Eğer referans mektubu ise:
-- valid: true
-- documentType: "reference_letter"
-- date: mektup tarihi (YYYY-MM-DD formatında, yoksa null)
-- score: null
-- reason: kısa açıklama (kim yazmış varsa belirt)
+ACCEPTED (valid=true): Formal reference/recommendation letters, signed by an authority figure.
+REJECTED (valid=false): Class notes, reports, certificates, transcripts, any document that is NOT a reference letter.
 
-Eğer referans mektubu değilse:
-- valid: false
-- documentType: gerçek belge tipi
-- date: null
-- score: null
-- reason: neden geçersiz olduğunu açıkla
-
-Sadece JSON döndür, başka hiçbir şey yazma.`
+Return ONLY this JSON:
+{"valid": true/false, "documentType": "reference_letter" or actual type, "date": "YYYY-MM-DD or null", "score": null, "reason": "brief explanation in Turkish"}`
     };
 
     const prompt = prompts[expectedType] || prompts.certificate;
@@ -113,12 +95,13 @@ Sadece JSON döndür, başka hiçbir şey yazma.`
         if (!geminiResponse.ok) {
             const errText = await geminiResponse.text();
             console.error('Gemini API hatası:', errText);
-            // API hatası durumunda yüklemeye izin ver (kullanıcıyı engelleme)
-            return { valid: true, documentType: 'unknown', date: null, score: null, reason: 'API hatası, analiz atlandı' };
+            // API hatası: güvenli taraf -> reddet
+            return { valid: false, documentType: 'unknown', date: null, score: null, reason: 'Belge doğrulama servisi geçici olarak kullanılamıyor. Lütfen tekrar deneyin.' };
         }
 
         const geminiData = await geminiResponse.json();
         const textContent = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        console.log('Gemini yanıtı:', textContent);
 
         // JSON parse et
         const cleanedText = textContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
@@ -134,8 +117,8 @@ Sadece JSON döndür, başka hiçbir şey yazma.`
 
     } catch (err) {
         console.error('Gemini analiz hatası:', err.message);
-        // Hata durumunda yüklemeye izin ver, sadece log'la
-        return { valid: true, documentType: 'unknown', date: null, score: null, reason: 'Analiz başarısız: ' + err.message };
+        // Parse hatası vs. -> reddet (güvenli taraf)
+        return { valid: false, documentType: 'unknown', date: null, score: null, reason: 'Belge okunamadı veya doğrulanamadı. Lütfen okunabilir bir PDF yükleyin.' };
     }
 }
 
