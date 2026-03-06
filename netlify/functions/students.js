@@ -1,5 +1,7 @@
 import { getDb } from './utils/db.js';
 import { getUserFromEvent, jsonResponse, corsHeaders } from './utils/helpers.js';
+import { analyzeDocument, checkLanguageCertExpiry } from './utils/gemini.js';
+
 
 export async function handler(event) {
     if (event.httpMethod === 'OPTIONS') {
@@ -119,18 +121,39 @@ export async function handler(event) {
             const certUrl = certificateUrl || null;
             const refId = referenceId || null;
 
+            // Sertifika yüklendiyse Gemini ile doğrula
+            let docVerified = false;
+            let docType = null;
+            if (certUrl && vType === 'certificate') {
+                try {
+                    const analysis = await analyzeDocument(certUrl, 'certificate');
+                    if (!analysis.valid) {
+                        return jsonResponse(400, {
+                            error: 'Yüklenen belge bir sertifika veya diploma değil gibi görünüyor. Lütfen doğru belgeyi yükleyin.',
+                            geminiReason: analysis.reason
+                        });
+                    }
+                    docVerified = true;
+                    docType = analysis.documentType;
+                } catch (e) {
+                    console.warn('Gemini sertifika analizi atlandı:', e.message);
+                }
+            }
+
             const result = await sql`
-        INSERT INTO student_skills (student_id, skill_name, proficiency_level, certificate_url, verification_type, reference_id)
-        VALUES (${profiles[0].id}, ${skillName}, ${level}, ${certUrl}, ${vType}, ${refId})
+        INSERT INTO student_skills (student_id, skill_name, proficiency_level, certificate_url, verification_type, reference_id, doc_verified, doc_type)
+        VALUES (${profiles[0].id}, ${skillName}, ${level}, ${certUrl}, ${vType}, ${refId}, ${docVerified}, ${docType})
         ON CONFLICT (student_id, skill_name) DO UPDATE SET
           proficiency_level = ${level},
           certificate_url = ${certUrl},
           verification_type = ${vType},
-          reference_id = ${refId}
+          reference_id = ${refId},
+          doc_verified = ${docVerified},
+          doc_type = ${docType}
         RETURNING *
       `;
 
-            return jsonResponse(201, { skill: result[0] });
+            return jsonResponse(201, { skill: result[0], docVerified });
         }
 
         // DELETE /api/students/skills/:id - Beceri sil
@@ -151,26 +174,66 @@ export async function handler(event) {
         if (event.httpMethod === 'POST' && path === '/languages') {
             if (!authUser) return jsonResponse(401, { error: 'Oturum gerekli' });
 
-            const { examType, score, certificateUrl } = body;
+            const { examType, score, certificateUrl, examDate } = body;
             if (!examType || !score) return jsonResponse(400, { error: 'Sınav türü ve skor zorunludur' });
             if (!certificateUrl) return jsonResponse(400, { error: 'Sonuç belgesi (PDF) yüklenmesi zorunludur' });
+            if (!examDate) return jsonResponse(400, { error: 'Sınav tarihi zorunludur (ör: 2023-05-15)' });
 
             const validExams = ['TOEFL', 'IELTS', 'YDS', 'YÖKDİL'];
             if (!validExams.includes(examType)) return jsonResponse(400, { error: 'Geçersiz sınav türü' });
 
+            // Tarih formatı kontrolü
+            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+            if (!dateRegex.test(examDate)) return jsonResponse(400, { error: 'Tarih formatı geçersiz. YYYY-MM-DD kullanın' });
+
+            // Geçerlilik süresi kontrolü
+            const expiry = checkLanguageCertExpiry(examType, examDate);
+            if (expiry.expired) {
+                return jsonResponse(400, {
+                    error: `Bu ${examType} sertifikası geçerliliğini yitirmiş. Geçerlilik tarihi: ${expiry.expiryDate}. Lütfen güncel belge yükleyin.`,
+                    expiry
+                });
+            }
+
             const profiles = await sql`SELECT id FROM student_profiles WHERE user_id = ${authUser.id}`;
             if (profiles.length === 0) return jsonResponse(404, { error: 'Profil bulunamadı' });
 
+            // Gemini ile PDF analizi (asenkron, yüklemeyi bloklamaz ama sonucu kaydeder)
+            let geminiScore = null;
+            let docVerified = false;
+            try {
+                const analysis = await analyzeDocument(certificateUrl, 'language', examType);
+                if (!analysis.valid) {
+                    return jsonResponse(400, {
+                        error: `Yüklenen belge ${examType} sertifikası değil gibi görünüyor. Lütfen doğru belgeyi yükleyin.`,
+                        geminiReason: analysis.reason
+                    });
+                }
+                geminiScore = analysis.score;
+                docVerified = true;
+            } catch (e) {
+                console.warn('Gemini analiz atlandı:', e.message);
+            }
+
             const result = await sql`
-        INSERT INTO student_languages (student_id, exam_type, score, certificate_url)
-        VALUES (${profiles[0].id}, ${examType}, ${score}, ${certificateUrl})
+        INSERT INTO student_languages (student_id, exam_type, score, certificate_url, exam_date, expiry_date, is_expired, gemini_verified_score)
+        VALUES (${profiles[0].id}, ${examType}, ${score}, ${certificateUrl}, ${examDate}, ${expiry.expiryDate}, false, ${geminiScore})
         ON CONFLICT (student_id, exam_type) DO UPDATE SET
           score = ${score},
-          certificate_url = ${certificateUrl}
+          certificate_url = ${certificateUrl},
+          exam_date = ${examDate},
+          expiry_date = ${expiry.expiryDate},
+          is_expired = false,
+          gemini_verified_score = ${geminiScore}
         RETURNING *
       `;
 
-            return jsonResponse(201, { language: result[0] });
+            return jsonResponse(201, {
+                language: result[0],
+                expiry,
+                docVerified,
+                warning: expiry.daysLeft < 180 ? `Dikkat: Bu sertifikanın geçerliliği ${expiry.daysLeft} gün sonra dolacak.` : null
+            });
         }
 
         // DELETE /api/students/languages/:id - Dil skoru sil
@@ -198,14 +261,29 @@ export async function handler(event) {
             const profiles = await sql`SELECT id FROM student_profiles WHERE user_id = ${authUser.id}`;
             if (profiles.length === 0) return jsonResponse(404, { error: 'Profil bulunamadı' });
 
+            // Gemini ile referans mektubu doğrulama
+            let docVerified = false;
+            try {
+                const analysis = await analyzeDocument(letterUrl, 'reference');
+                if (!analysis.valid) {
+                    return jsonResponse(400, {
+                        error: 'Yüklenen belge bir referans mektubu değil gibi görünüyor. Lütfen doğru belgeyi yükleyin.',
+                        geminiReason: analysis.reason
+                    });
+                }
+                docVerified = true;
+            } catch (e) {
+                console.warn('Gemini referans analizi atlandı:', e.message);
+            }
+
             const ctx = context || 'academic';
             const result = await sql`
-        INSERT INTO student_references (student_id, reference_name, reference_title, institution, letter_url, context)
-        VALUES (${profiles[0].id}, ${referenceName}, ${referenceTitle || null}, ${institution || null}, ${letterUrl}, ${ctx})
+        INSERT INTO student_references (student_id, reference_name, reference_title, institution, letter_url, context, doc_verified)
+        VALUES (${profiles[0].id}, ${referenceName}, ${referenceTitle || null}, ${institution || null}, ${letterUrl}, ${ctx}, ${docVerified})
         RETURNING *
       `;
 
-            return jsonResponse(201, { reference: result[0] });
+            return jsonResponse(201, { reference: result[0], docVerified });
         }
 
         // DELETE /api/students/references/:id - Referans sil

@@ -489,10 +489,10 @@ async function renderLanguages(content) {
         <div class="form-group">
           <label class="form-label">📝 Sınav Türü *</label>
           <select class="form-select" id="langExamType">
-            <option value="TOEFL">🇺🇸 TOEFL (max 120)</option>
-            <option value="IELTS">🇬🇧 IELTS (max 9.0)</option>
-            <option value="YDS">🇹🇷 YDS (max 100)</option>
-            <option value="YÖKDİL">🇹🇷 YÖKDİL (max 100)</option>
+            <option value="TOEFL">🇺🇸 TOEFL (max 120) — 2 yıl geçerli</option>
+            <option value="IELTS">🇬🇧 IELTS (max 9.0) — 2 yıl geçerli</option>
+            <option value="YDS">🇹🇷 YDS (max 100) — 5 yıl geçerli</option>
+            <option value="YÖKDİL">🇹🇷 YÖKDİL (max 100) — 5 yıl geçerli</option>
           </select>
         </div>
         <div class="form-group">
@@ -501,20 +501,31 @@ async function renderLanguages(content) {
         </div>
       </div>
       <div class="form-group">
+        <label class="form-label">📅 Sınav Tarihi * <span style="color:var(--error);">Zorunlu</span></label>
+        <input type="date" class="form-input" id="langExamDate" max="" style="cursor:pointer;">
+        <p class="form-hint">⚠️ TOEFL/IELTS 2 yıl, YDS/YÖKDİL 5 yıl geçerlidir. Süresi dolmuş sertifikalar kabul edilmez.</p>
+      </div>
+      <div class="form-group">
         <label class="form-label">📄 Sonuç Belgesi (PDF) * <span style="color:var(--error);">Zorunlu</span></label>
         <input type="file" class="form-input" id="langCertFile" accept=".pdf">
-        <p class="form-hint">Sonuç belgesi yüklenmeden skor kabul edilmez</p>
+        <p class="form-hint">Belge Gemini AI ile otomatik doğrulanır. Farklı bir belge yüklenirse reddedilir.</p>
       </div>
       <div style="display:flex;gap:var(--space-3);">
-        <button class="btn btn-primary btn-sm" id="saveLangBtn">Kaydet</button>
+        <button class="btn btn-primary btn-sm" id="saveLangBtn">🤖 Kaydet & Doğrula</button>
         <button class="btn btn-ghost btn-sm" id="cancelLangBtn">İptal</button>
       </div>
     </div>
 
     ${languages.length > 0 ? `
       <div class="lang-cards-grid">
-        ${languages.map(lang => `
-          <div class="card lang-card">
+        ${languages.map(lang => {
+          const isExpired = lang.is_expired || (lang.expiry_date && new Date(lang.expiry_date) < new Date());
+          const expiryDate = lang.expiry_date ? new Date(lang.expiry_date).toLocaleDateString('tr-TR') : null;
+          const examDate = lang.exam_date ? new Date(lang.exam_date).toLocaleDateString('tr-TR') : null;
+          const daysLeft = lang.expiry_date ? Math.floor((new Date(lang.expiry_date) - new Date()) / (1000*60*60*24)) : null;
+          const soonExpiring = daysLeft !== null && daysLeft > 0 && daysLeft < 180;
+          return `
+          <div class="card lang-card" style="${isExpired ? 'border-color:var(--error);opacity:0.8;' : soonExpiring ? 'border-color:var(--warning);' : ''}">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3);">
               <div style="display:flex;align-items:center;gap:var(--space-2);">
                 <span style="font-size:1.5rem;">${examInfo[lang.exam_type]?.icon || '🌐'}</span>
@@ -525,10 +536,18 @@ async function renderLanguages(content) {
             <div style="font-size:var(--font-2xl);font-weight:800;background:var(--gradient-primary);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:var(--space-2);">
               ${lang.score}
             </div>
-            <div style="font-size:var(--font-xs);color:var(--text-muted);">Max: ${examInfo[lang.exam_type]?.max || '?'}</div>
+            <div style="font-size:var(--font-xs);color:var(--text-muted);margin-bottom:var(--space-2);">Max: ${examInfo[lang.exam_type]?.max || '?'}</div>
+            ${examDate ? `<div style="font-size:var(--font-xs);color:var(--text-muted);">📅 Sınav: ${examDate}</div>` : ''}
+            ${expiryDate ? `<div style="font-size:var(--font-xs);color:${isExpired ? 'var(--error)' : soonExpiring ? 'var(--warning)' : 'var(--text-muted)'};">⏳ Geçerlilik: ${expiryDate}</div>` : ''}
+            <div style="display:flex;gap:var(--space-2);margin-top:var(--space-3);flex-wrap:wrap;">
+              ${lang.gemini_verified_score ? '<span class="badge badge-success" style="font-size:0.65rem;">🤖 AI Doğrulandı</span>' : ''}
+              ${isExpired ? '<span class="badge badge-error" style="font-size:0.65rem;">❌ Süresi Doldu</span>' : ''}
+              ${soonExpiring ? `<span class="badge badge-warning" style="font-size:0.65rem;">⚠️ ${daysLeft} gün kaldı</span>` : ''}
+            </div>
             ${lang.certificate_url ? `<a href="${lang.certificate_url}" target="_blank" class="btn btn-ghost btn-sm" style="margin-top:var(--space-2);">📄 Belgeyi Görüntüle</a>` : ''}
           </div>
-        `).join('')}
+          `;
+        }).join('')}
       </div>
     ` : `
       <div class="empty-state">
@@ -547,21 +566,24 @@ async function renderLanguages(content) {
   document.getElementById('saveLangBtn').addEventListener('click', async () => {
     const examType = document.getElementById('langExamType').value;
     const score = document.getElementById('langScore').value.trim();
+    const examDate = document.getElementById('langExamDate').value;
     const fileInput = document.getElementById('langCertFile');
 
     if (!score) { window.showToast('Skor zorunludur', 'error'); return; }
+    if (!examDate) { window.showToast('Sınav tarihi zorunludur', 'error'); return; }
     if (!fileInput.files[0]) { window.showToast('Sonuç belgesi (PDF) yüklenmesi zorunludur', 'error'); return; }
 
     try {
-      window.showToast('Belge yükleniyor...', 'info');
+      window.showToast('🤖 Belge yükleniyor ve AI ile doğrulanıyor...', 'info');
       const uploadResult = await uploadFile(fileInput.files[0]);
 
       await studentsAPI.addLanguage({
         examType,
         score,
+        examDate,
         certificateUrl: uploadResult.url
       });
-      window.showToast('Dil skoru eklendi! ✅', 'success');
+      window.showToast('Dil skoru eklendi ve doğrulandı! ✅', 'success');
       renderLanguages(content);
     } catch (error) {
       window.showToast(error.message, 'error');
