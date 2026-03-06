@@ -1,0 +1,271 @@
+# 🎯 KariyerMatch — Akıllı İş & Staj Eşleştirme Platformu
+
+---
+
+## 📌 Proje Özeti
+
+**KariyerMatch**, üniversite öğrencileri ile işverenler arasında **beceri tabanlı akıllı eşleştirme** yapan bir web platformudur. Geleneksel iş arama sitelerinden farklı olarak, öğrencilerin sahip olduğu beceriler ile iş ilanlarının gereksinimleri arasında **otomatik uyumluluk analizi** yaparak her iki tarafa da en doğru eşleşmeyi sunar.
+
+> **Slogan:** *"Kariyerinizi Akıllıca Başlatın"*
+
+---
+
+## 🎯 Problemin Tanımı
+
+| Problem | KariyerMatch Çözümü |
+|---------|---------------------|
+| Öğrenciler, hangi ilanın becerilerine uygun olduğunu bilemez | **Akıllı Eşleştirme Skoru** ile her ilan için % uyumluluk gösterimi |
+| İşverenler, yüzlerce CV arasından doğru adayı bulmakta zorlanır | **Aday Sıralama Sistemi** ile beceri bazlı otomatik sıralama |
+| CV'deki beceriler doğrulanmamıştır | **Sertifika & Referans Doğrulama** sistemi ile güvenilirlik |
+| Başvuru sonrası süreç takibi yoktur | **Gerçek zamanlı bildirimler** ve durum takibi |
+| İşveren-öğrenci iletişimi kopuktur | **Entegre mesajlaşma sistemi** ile doğrudan iletişim |
+
+---
+
+## 🏗️ Teknik Mimari
+
+```mermaid
+graph TB
+    subgraph Frontend["🖥️ Frontend (SPA)"]
+        A["Vite + Vanilla JS"]
+        B["Hash Router"]
+        C["Modüler Sayfa Yapısı"]
+        D["Responsive CSS Tasarım"]
+    end
+
+    subgraph Backend["⚙️ Backend (Serverless)"]
+        E["Netlify Functions"]
+        F["11 API Endpoint"]
+        G["JWT Authentication"]
+        H["bcrypt Şifreleme"]
+    end
+
+    subgraph Database["🗄️ Veritabanı"]
+        I["Neon PostgreSQL"]
+        J["12+ Tablo"]
+        K["İlişkisel Şema"]
+    end
+
+    subgraph Storage["📦 Depolama"]
+        L["Netlify Blobs"]
+        M["PDF Dosya Yükleme"]
+    end
+
+    A --> E
+    E --> I
+    E --> L
+```
+
+### Teknoloji Yığını
+
+| Katman | Teknoloji | Açıklama |
+|--------|-----------|----------|
+| **Frontend** | Vite + Vanilla JS | Hızlı SPA, modüler yapı |
+| **Stil** | Vanilla CSS | Dark mode, glassmorphism, animasyonlar |
+| **Backend** | Netlify Functions | Serverless mimari, otomatik ölçeklendirme |
+| **Veritabanı** | Neon PostgreSQL | Bulut tabanlı, yönetilen PostgreSQL |
+| **Kimlik Doğrulama** | JWT + bcrypt | Güvenli token tabanlı auth |
+| **Dosya Depolama** | Netlify Blobs | PDF (CV, sertifika, referans) yükleme |
+| **Deployment** | Netlify | CI/CD, CDN, otomatik dağıtım |
+
+---
+
+## ✨ Özellikler & Ekranlar
+
+### 1. 🏠 Ana Sayfa
+- Etkileyici hero section, animasyonlu istatistikler
+- "Neden KariyerMatch?" özellik kartları
+- "Nasıl Çalışır?" adım adım rehber
+- Call-to-action bölümü
+
+### 2. 🔐 Kimlik Doğrulama Sistemi
+- Öğrenci ve İşveren rolleri ile kayıt
+- JWT tabanlı güvenli oturum açma
+- Şifreler **bcrypt** ile hash'lenerek saklanır
+- Token tabanlı oturum yönetimi
+
+### 3. 👨‍🎓 Öğrenci Paneli
+
+| Sekme | Açıklama |
+|-------|----------|
+| **Genel Bakış** | Eşleşme sayısı, başvuru durumu, profil tamamlanma oranı |
+| **Eşleşmeler** | Beceri bazlı sıralanmış ilanlar, eşleşen/eksik beceriler |
+| **Başvurularım** | Tüm başvuruların durumu: Beklemede, İncelendi, Kabul, Red |
+| **Becerilerim** | 1-5 yetkinlik seviyesi, sertifika/referans doğrulama |
+| **Dil Becerileri** | TOEFL, IELTS, YDS, YÖKDİL skorları (belge zorunlu) |
+| **Referanslarım** | Akademik, iş, beceri referans mektupları (PDF) |
+| **Bildirimler** | Anlık bildirimler, okundu/okunmadı takibi |
+| **Mesajlar** | İşverenlerle doğrudan mesajlaşma |
+
+### 4. 🏢 İşveren Paneli
+- İlan oluşturma ve yönetimi (iş / staj)
+- Gerekli beceriler ve yetkinlik seviyesi belirleme
+- **Aday Eşleştirme**: İlana en uygun öğrencileri otomatik sıralama
+- Başvuru yönetimi: Kabul et / Reddet / İncele
+- Öğrenci profili görüntüleme
+- Mesajlaşma
+
+### 5. 📋 İlan Sayfaları
+- Filtreleme: Tür (iş/staj), Konum, Uzaktan çalışma
+- İlan detay: Şirket bilgisi, gerekli beceriler, eşleşme skoru
+- Tek tıkla başvuru, ön yazı ile başvuru
+- "Mesaj Gönder" butonu
+
+### 6. 🛡️ Admin Paneli
+- Platform geneli istatistikler
+- Kullanıcı yönetimi (silme, rol değiştirme)
+- İlan yönetimi (oluşturma, düzenleme, aktif/pasif, silme)
+- Başvuru takibi
+- Platform ayarları
+
+### 7. 💬 Mesajlaşma Sistemi
+- 1-1 konuşmalar
+- Gerçek zamanlı mesaj gönderme
+- Okundu bilgisi
+- Okunmamış mesaj sayacı (navbar badge)
+
+### 8. 🔔 Bildirim Sistemi
+- Yeni başvuru, durum değişikliği, eşleşme bildirimleri
+- Navbar'da okunmamış sayaç
+- Dropdown ve sayfa içi bildirim listesi
+- Polling ile otomatik güncelleme
+
+---
+
+## 🧠 Akıllı Eşleştirme Algoritması
+
+KariyerMatch'in kalbi olan eşleştirme algoritması, **çok boyutlu bir puanlama sistemi** kullanır:
+
+```
+Toplam Skor = Beceri Eşleşmesi (max 70) + Bonus Puanlar (max 30) = Max 100
+```
+
+### Puanlama Detayı
+
+| Kriter | Puan | Açıklama |
+|--------|------|----------|
+| **Beceri Eşleşmesi** | 0-70 | Her becerinin yetkinlik seviyesi vs. ilan gereksinimleri |
+| **Zorunlu Beceri Ağırlığı** | 2x | Zorunlu beceriler 2 kat ağırlıklı |
+| **Şehir Eşleşmesi** | +5 | Aynı şehirdeyse bonus |
+| **Uzaktan Çalışma** | +2 | Remote pozisyonlara bonus |
+| **GPA ≥ 3.0** | +3 | Yüksek not ortalaması bonusu |
+| **CV Yüklü** | +2 | CV yüklemişse bonus |
+| **LinkedIn/GitHub** | +1/+1 | Profesyonel profil bonusu |
+| **Dil Sertifikası** | +8 max | TOEFL, IELTS vb. belgelenmiş dil becerisi |
+| **Sertifikalı Beceri** | +5 max | Doğrulanmış beceri bonusu |
+| **Referans Mektubu** | +3 max | Profesyonel referans bonusu |
+
+### Çift Yönlü Eşleştirme
+- **Öğrenci → İlanlar**: Öğrenciye en uygun ilanları skorla gösterir
+- **İşveren → Adaylar**: İlana en uygun öğrencileri skorla sıralar
+
+---
+
+## 🗄️ Veritabanı Şeması
+
+```mermaid
+erDiagram
+    users ||--o| student_profiles : "has"
+    users ||--o| employer_profiles : "has"
+    student_profiles ||--o{ student_skills : "has"
+    student_profiles ||--o{ student_languages : "has"
+    student_profiles ||--o{ student_references : "has"
+    employer_profiles ||--o{ job_listings : "creates"
+    job_listings ||--o{ job_requirements : "requires"
+    job_listings ||--o{ applications : "receives"
+    student_profiles ||--o{ applications : "submits"
+    users ||--o{ notifications : "receives"
+    users ||--o{ conversations : "participates"
+    conversations ||--o{ messages : "contains"
+```
+
+**12+ tablo** ile kapsamlı veri modeli: [users](file:///c:/Users/mecen/Desktop/Programlar/Kariyermatch/src/js/api.js#150-151), `student_profiles`, `employer_profiles`, `student_skills`, `student_languages`, `student_references`, `job_listings`, `job_requirements`, [applications](file:///c:/Users/mecen/Desktop/Programlar/Kariyermatch/src/js/api.js#158-159), `notifications`, `conversations`, `messages`
+
+---
+
+## 🔌 API Endpoints (11 Serverless Function)
+
+| # | Endpoint | Açıklama |
+|---|----------|----------|
+| 1 | `auth` | Kayıt, Giriş, Token Doğrulama |
+| 2 | `students` | Profil, Beceri, Dil, Referans CRUD |
+| 3 | `employers` | İşveren Profil CRUD |
+| 4 | [jobs](file:///c:/Users/mecen/Desktop/Programlar/Kariyermatch/src/js/api.js#153-154) | İlan Listeleme, Oluşturma, Güncelleme |
+| 5 | `match` | Akıllı Eşleştirme Algoritması |
+| 6 | [applications](file:///c:/Users/mecen/Desktop/Programlar/Kariyermatch/src/js/api.js#158-159) | Başvuru ve Durum Yönetimi |
+| 7 | `messages` | Konuşma & Mesaj Sistemi |
+| 8 | `notifications` | Bildirim Yönetimi |
+| 9 | `search` | Gelişmiş Aday Arama |
+| 10 | [upload](file:///c:/Users/mecen/Desktop/Programlar/Kariyermatch/src/js/api.js#61-89) | PDF Dosya Yükleme |
+| 11 | `admin` | Tam Yönetim Paneli API'ı |
+
+---
+
+## 🎨 UI/UX Tasarım Özellikleri
+
+- **Dark Mode** temalı modern arayüz
+- **Glassmorphism** ve gradient efektler
+- **Responsive** tasarım (mobil uyumlu)
+- **Animasyonlu** geçişler ve sayaçlar
+- Toast bildirim sistemi
+- Badge'ler ile durum gösterimi (Beklemede, Kabul, Red vb.)
+- Progress bar ile profil tamamlanma göstergesi
+- Emoji tabanlı ikonlar
+
+---
+
+## 📊 Platform İstatistikleri (Hedefler)
+
+| Metrik | Değer |
+|--------|-------|
+| Aktif Öğrenci | 500+ |
+| İş İlanı | 150+ |
+| Kayıtlı Şirket | 80+ |
+| Eşleşme Başarısı | %95 |
+
+---
+
+## 🚀 Deployment & Altyapı
+
+```mermaid
+graph LR
+    A["Git Push"] --> B["Netlify CI/CD"]
+    B --> C["Vite Build"]
+    C --> D["CDN Distribution"]
+    B --> E["Functions Deploy"]
+    E --> F["Serverless API"]
+    F --> G["Neon PostgreSQL"]
+    F --> H["Netlify Blobs"]
+```
+
+- **Ortam:** Tamamen serverless — sunucu yönetimi yok
+- **CI/CD:** Git push ile otomatik deployment
+- **CDN:** Global dağıtım ile hızlı yükleme
+- **Ölçeklenebilirlik:** Otomatik, talebe göre
+
+---
+
+## 🔮 Gelecek Planlar
+
+- [ ] Yapay zeka destekli CV analizi
+- [ ] Video mülakat entegrasyonu
+- [ ] Mobil uygulama (React Native)
+- [ ] Şirket değerlendirme sistemi
+- [ ] Beceri testi / quiz modülü
+- [ ] LinkedIn API entegrasyonu
+- [ ] Gerçek zamanlı WebSocket mesajlaşma
+
+---
+
+## 🏆 Neden KariyerMatch?
+
+1. **Akıllı Eşleştirme**: Sadece iş aramak değil, en uygun eşleşmeyi bulmak
+2. **Güvenilir Profiller**: Sertifika ve referansla doğrulanmış beceriler
+3. **Çift Yönlü Fayda**: Öğrenciler en uygun ilanı, işverenler en uygun adayı bulur
+4. **Modern Mimari**: Serverless, ölçeklenebilir, bakımı kolay
+5. **Tamamen Bulut Tabanlı**: Sunucu yönetimi gerektirmeyen, düşük maliyetli altyapı
+6. **Kullanıcı Dostu**: Sade ve modern arayüz, 3 adımda başlangıç
+
+---
+
+> © 2026 KariyerMatch — *Öğrenciler ve işverenler burada buluşuyor.*
